@@ -6,6 +6,7 @@ QA: Haozhang Deng
 
 <!-- toc -->
 
+- [Project charter](#project-charter)
 - [Directory structure](#directory-structure)
 - [Running the app](#running-the-app)
   * [1. Initialize the database](#1-initialize-the-database)
@@ -22,6 +23,59 @@ QA: Haozhang Deng
   * [Workaround for potential Docker problem for Windows.](#workaround-for-potential-docker-problem-for-windows)
 
 <!-- tocstop -->
+
+# Project charter
+
+The fast paced nature of online news delivery and social media means that readers today regularly ingest news headlines without meaningful context. This app offers an alternative way to understand the news by providing context through Wikipedia articles.
+
+## Vision
+
+To display daily news content and suggest wikipedia articles that are relevant to them. Users can read the news in a way is engaging and interactive, but with minimal bias and misinformation.
+
+## Mission
+
+The headlines and news descriptions will come from one or more news APIs. Spacy's pretrained [Named Entity Recognition](https://spacy.io/api/entityrecognizer) (NER) tool can be used to extract names, organizations, locations, phrases, etc. from a news description. The resulting entities/topics can then be used to query wikipedia pages using the wikipedia API.
+
+Given a query, the Wikipedia API can search through Wikipedia and return the most relevant articles. 
+
+For example, here is an April 4th headline: `"GMC's newly-unveiled Hummer EV SUV is 830HP of electric 'supertruck'"`. Using NER entities to search Wikipedia, these articles are suggested (most recent revision times are also shown).
+
+```
+GMC (automobile)
+2021-04-02T00:03:08Z
+
+GMC Hummer EV
+2021-04-04T00:38:23Z
+
+HP EliteBook
+2021-03-09T14:43:09Z
+```
+
+The first two articles are relevant, but the third is not. Irrelevant articles can be removed if they fail to meet a similarity metric threshhold.
+
+- [News API](https://newsapi.org/v2/top-headlines?)
+- [Wikipedia API](https://en.wikipedia.org/w/api.php)
+- [Python wrapper for Wikipedia API](https://github.com/goldsmith/Wikipedia)
+
+## Success criteria
+
+**Prediction metric:**
+
+After searching Wikipedia for the topic(s), the app should identify whether the top result is relevant to the news article. 
+
+A number of similarity metrics, along with text cleaning, can be tested before determining the optimal metric and threshhold. For example, using python's built-in `SequenceMatcher`, these two texts have a similarity score of 0.08. 
+
+from News API:
+
+>"GMC just unveiled its $100,000 Hummer EV SUV with 830-horsepower that will hit streets in 2023 (GM). The Hummer EV pickup won\'t be the only "supertruck" in GMC\'s fleet after the automaker unveiled its Hummer EV SUV variant on Saturday. It\'s slated for release in spring 2023."
+
+from Wikipedia's page "GMC Hummer EV":
+
+>"The GMC Hummer EV is both an upcoming off-road luxury electric vehicle produced by GMC (simply referred to as Hummer EV; and badged as HEV), and its own sub-brand. The Hummer EV line was launched in October 2020 through a live stream.\nThe Hummer EV sub-brand includes a pickup truck (SUT) and a confirmed Sport Utility Vehicle (SUV) that was introduced on 3rd of April 2021."
+
+**Business outcome:**
+
+Ideally the deployed app would track whether a user clicks on the Wikipedia articles that are linked. Business success can be measured based on a ratio of the number of internal link clicks versus overall visits to the web app. This is possible to measure but outside the scope of the project.
 
 ## Directory structure 
 
