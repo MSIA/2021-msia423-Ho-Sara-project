@@ -1,7 +1,6 @@
 # MSiA423 Template Repository
 
 Author: Sara Ho
-
 QA: Haozhang Deng
 
 <!-- toc -->
