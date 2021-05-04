@@ -50,11 +50,10 @@ def wiki_pageinfo(title):
 def news_query(query):
     S = requests.Session()
     URL = "https://newsapi.org/v2/everything?"
-    PARAMS = {
-               'apiKey': NEWS_API_KEY,
-               'q': query,
-               'from': '2021-04-04',
-               'to': '2021-04-05'}
+    PARAMS = {'apiKey': NEWS_API_KEY,
+              'q': query,
+              'from': '2021-04-04',
+              'to': '2021-04-05'}
     S.get(url=URL, params=PARAMS)
 
     R = S.get(url=URL, params=PARAMS)
