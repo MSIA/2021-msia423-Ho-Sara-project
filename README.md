@@ -1,4 +1,4 @@
-# MSiA423 Template Repository
+# WikiNews
 
 Author: Sara Ho
 QA: Haozhang Deng
@@ -19,7 +19,6 @@ QA: Haozhang Deng
   * [1. Build the image](#1-build-the-image)
   * [2. Run the container](#2-run-the-container)
   * [3. Kill the container](#3-kill-the-container)
-  * [Workaround for potential Docker problem for Windows.](#workaround-for-potential-docker-problem-for-windows)
 
 <!-- tocstop -->
 
@@ -92,8 +91,6 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 │   ├── flaskconfig.py                <- Configurations for Flask API 
 │
 ├── data                              <- Folder that contains data used or generated. Only the external/ and sample/ subdirectories are tracked by git. 
-│   ├── external/                     <- External data sources, usually reference data,  will be synced with git
-│   ├── sample/                       <- Sample data used for code development and testing, will be synced with git
 │
 ├── deliverables/                     <- Any white papers, presentations, final work products that are presented or delivered to a stakeholder 
 │
@@ -104,10 +101,8 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 ├── models/                           <- Trained model objects (TMOs), model predictions, and/or model summaries
 │
 ├── notebooks/
-│   ├── archive/                      <- Develop notebooks no longer being used.
 │   ├── deliver/                      <- Notebooks shared with others / in final state
 │   ├── develop/                      <- Current notebooks being used in development.
-│   ├── template.ipynb                <- Template notebook for analysis with useful imports, helper functions, and SQLAlchemy setup. 
 │
 ├── reference/                        <- Any reference material relevant to the project
 │
@@ -194,21 +189,21 @@ You should now be able to access the app at http://0.0.0.0:5000/ in your browser
 The Dockerfile for running the flask app is in the `app/` folder. To build the image, run from this directory (the root of the repo): 
 
 ```bash
- docker build -f app/Dockerfile -t pennylane .
+ docker build -f app/Dockerfile -t wikinews .
 ```
 
-This command builds the Docker image, with the tag `pennylane`, based on the instructions in `app/Dockerfile` and the files existing in this directory.
+This command builds the Docker image, with the tag `wikinews`, based on the instructions in `app/Dockerfile` and the files existing in this directory.
  
 ### 2. Run the container 
 
 To run the app, run from this directory: 
 
 ```bash
-docker run -p 5000:5000 --name test pennylane
+docker run -p 5000:5000 --name test wikinews
 ```
 You should now be able to access the app at http://0.0.0.0:5000/ in your browser.
 
-This command runs the `pennylane` image as a container named `test` and forwards the port 5000 from container to your laptop so that you can access the flask app exposed through that port. 
+This command runs the `wikinews` image as a container named `test` and forwards the port 5000 from container to your laptop so that you can access the flask app exposed through that port. 
 
 If `PORT` in `config/flaskconfig.py` is changed, this port should be changed accordingly (as should the `EXPOSE 5000` line in `app/Dockerfile`)
 
@@ -229,13 +224,13 @@ We have included another example of a Dockerfile, `app/Dockerfile_python` that h
 To build this image: 
 
 ```bash
- docker build -f app/Dockerfile_python -t pennylane .
+ docker build -f app/Dockerfile_python -t wikinews .
 ```
 
 then run the `docker run` command: 
 
 ```bash
-docker run -p 5000:5000 --name test pennylane app.py
+docker run -p 5000:5000 --name test wikinews app.py
 ```
 
 The new image defines the entry point command as `python3`. Building the sample PennyLane image this way will require initializing the database prior to building the image so that it is copied over, rather than created when the container is run. Therefore, please **do the step [Create the database with a single song](#create-the-database-with-a-single-song) above before building the image**.
