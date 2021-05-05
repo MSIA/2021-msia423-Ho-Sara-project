@@ -23,42 +23,40 @@ logger = logging.getLogger('s3')
 
 
 def parse_s3(s3path):
-    regex = r"s3://([\w._-]+)/([\w./_-]+)"
-
-    m = re.match(regex, s3path)
-    s3bucket = m.group(1)
-    s3path = m.group(2)
-
-    return s3bucket, s3path
+    s3bucket = s3path.replace('s3://', '')
+    return s3bucket
 
 
 def upload_files_to_s3(local_path, s3path):
 
-    s3bucket, s3_just_path = parse_s3(s3path)
+    s3bucket = parse_s3(s3path)
 
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(s3bucket)
 
-    try:
-        bucket.upload_file(local_path, s3_just_path)
-    except botocore.exceptions.NoCredentialsError:
-        logger.error('Please provide AWS credentials via AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env variables.')
-    else:
-        logger.info(f'Data uploaded from {local_path} to {s3path}')
-
-
-def upload_to_s3_pandas(local_path, s3path, sep=';'):
-
-    files = os.listdir('./data')
+    files = os.listdir(local_path)
+    files = [file for file in files if '.csv' in file]
     for file in files:
-        df = pd.read_csv(local_path + file, sep=sep)
-
         try:
-            df.to_csv(s3path + file, sep=sep)
+            bucket.upload_file(f'{local_path}/{file}', file)
         except botocore.exceptions.NoCredentialsError:
             logger.error('Please provide AWS credentials via AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env variables.')
         else:
             logger.info(f'Data uploaded from {local_path} to {s3path}')
+
+
+# def upload_to_s3_pandas(local_path, s3path):
+
+#     files = os.listdir(local_path)
+#     for file in files:
+#         df = pd.read_csv(local_path + FileExistsError)
+
+#         try:
+#             df.to_csv(s3path + file)
+#         except botocore.exceptions.NoCredentialsError:
+#             logger.error('Please provide AWS credentials via AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env variables.')
+#         else:
+#             logger.info(f'Data uploaded from {local_path} to {s3path}')
 
 
 if __name__ == '__main__':
@@ -66,7 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--sep',
                         default=';',
                         help="CSV separator if using pandas")
-    parser.add_argument('--load', default='False',
+    parser.add_argument('--load', default=False,
                         help="load data?")
     parser.add_argument('--pandas', default=False, action='store_true',
                         help="If used, will load data via pandas")
