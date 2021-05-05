@@ -1,7 +1,6 @@
 import requests
 from config import NEWS_API_KEY
 
-
 def wiki_query(query):
     S = requests.Session()
     URL = "https://en.wikipedia.org/w/api.php"

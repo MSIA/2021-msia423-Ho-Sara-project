@@ -99,7 +99,6 @@ class WikiNewsManager:
         session.commit()
         logger.info(f"'{news[0:20]}' added to database with id {str(news_id)}")
 
-
     def add_wiki(self, news_id: int, entity: str, label: str, title: str, category: str, revised: str, url: str, wiki: str, image: str) -> None:
         """Seeds an existing database with additional wiki recommendations.
 

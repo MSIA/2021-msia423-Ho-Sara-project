@@ -2,7 +2,6 @@ from datetime import date
 import spacy
 import pandas as pd
 
-from config import NEWS_API_KEY
 from api_helpers import *
 from sim import *
 
@@ -10,22 +9,29 @@ nlp = spacy.load("en_core_web_sm")
 
 
 def load_news():
+    print('loading news')
     data = news_top()
     news = []
     for article in data['articles']:
+
         headline = article['title']
         if article['description'] is not None:
             headline += article['description']
 
-        headline = headline.replace(article['source']['name'], '') # remove publication information
+        # remove publication information
+        headline = headline.replace(article['source']['name'], '')
         news.append(headline)
 
     news_table = pd.DataFrame(news).reset_index()
     news_table.columns = ['news_id', 'news']
+
+    today = date.today().strftime("%b-%d-%Y")
+    news_table.to_csv(f'./data/{today}-us-top-headlines.csv', index=False)
     return news_table
 
 
 def load_wiki(news_table):
+    print('matching news with wiki entries')
     table_data = []
     for _, row in news_table.iterrows():
         news_id, news = row
@@ -37,24 +43,28 @@ def load_wiki(news_table):
         doc = nlp(news)
 
         entities = []
+        labels = []
         for ent in doc.ents:
             if (ent.label_ in ['PERSON', 'FAC', 'ORG', 'NORP', 'PRODUCT']) and (ent.text not in entities):
                 if ent.label_ == 'PERSON':
-                    label = 'PERSON'
+                    labels.append('PERSON')
                 elif ent.label_ == 'NORP':
-                    label = 'GROUP'
+                    labels.append('GROUP')
                 elif ent.label_ == 'ORG':
-                    label = 'ORGANIZATION'
+                    labels.append('ORGANIZATION')
                 else:
-                    label = ''
+                    labels.append('')
 
-            articledata = wiki_query(ent.text + label)
+                entities.append(ent.text)
 
-            try: 
+        for ent, label in zip(entities, labels):
+            articledata = wiki_query(ent)
+
+            try:
                 search_results = articledata['query']['search']
-                i = 0
-                while((i < len(search_results)) & (distance(ent.text, search_results[i]['title']) < 10)):
-                    title = search_results[i]['title']
+
+                for result in search_results[0:3]:  # take the top 3
+                    title = result['title']
                     info = wiki_pageinfo(title)
                     info = list(info['query']['pages'].values())[0]
 
@@ -68,9 +78,9 @@ def load_wiki(news_table):
                         if 'thumbnail' in content:
                             image = content['thumbnail']['source']
                         else:
-                            image = None
-                        table_data.append({'news_id': qid,
-                                           'entity': ent.text,
+                            image = ''
+                        table_data.append({'news_id': news_id,
+                                           'entity': ent,
                                            'label': label,
                                            'title': info['title'],
                                            'category': categories[0],
@@ -78,11 +88,12 @@ def load_wiki(news_table):
                                            'url': info['fullurl'],
                                            'wiki': content['extract'],
                                            'image': image})
-                    i += 1
 
             except(IndexError):
                 continue
 
-    # today = date.today().strftime("%b-%d-%Y")
-    # table.to_csv(f'{today}-us-top-headlines.csv', index = False)
-    return pd.DataFrame(table_data)
+    table = pd.DataFrame(table_data)
+    today = date.today().strftime("%b-%d-%Y")
+    table.to_csv(f'./data/{today}-wiki-entries-for-us-top-headlines.csv',
+                 index=False)
+    return table
