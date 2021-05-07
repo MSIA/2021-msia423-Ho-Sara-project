@@ -4,6 +4,7 @@ import logging.config
 
 from flask import Flask
 from flask import render_template, request, redirect, url_for
+from config.flaskconfig import *
 
 # Initialize the database session
 from src.add_records import Wiki, News, WikiNewsManager
@@ -21,6 +22,7 @@ app.config.from_pyfile('config/flaskconfig.py')
 logging.config.fileConfig(app.config["LOGGING_CONFIG"])
 logger = logging.getLogger(app.config["APP_NAME"])
 db = 'sqlite:///data/entries.db'
+# db = f'{DB_DIALECT}://{DB_USER}:{DB_PW}@{DB_HOST}:{DB_PORT}/{DATABASE}'
 logger.debug('Web app log')
 
 manager = WikiNewsManager(engine_string=db)
