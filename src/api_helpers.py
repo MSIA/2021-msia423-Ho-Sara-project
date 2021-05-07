@@ -1,5 +1,14 @@
 import requests
-from config import NEWS_API_KEY
+import os
+import logging
+import logging.config
+
+logging.config.fileConfig("config/logging/local.conf",
+                          disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
+
+NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
+
 
 def wiki_query(query):
     S = requests.Session()

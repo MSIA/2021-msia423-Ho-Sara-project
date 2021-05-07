@@ -11,8 +11,7 @@ import boto3
 import botocore
 
 from src.load_data import *
-from src.api_helpers import *
-from src.add_records import WikiNewsManager, create_db
+from src.add_entries import WikiNewsManager, create_db
 from config.flaskconfig import SQLALCHEMY_DATABASE_URI
 
 logging.basicConfig(format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s', level=logging.DEBUG)
@@ -71,19 +70,17 @@ if __name__ == '__main__':
     sb_ingest = subparsers.add_parser('ingest', description="Add data to database")
     sb_ingest.add_argument("--engine_string", default='sqlite:///data/entries.db',
                            help="SQLAlchemy connection URI for database")
-
-    # Sub-parser for where local data is
-    sb_local = subparsers.add_parser('local', description="Describe where local data is")
-    sb_local.add_argument("--file_path", default='./data/sample',
+    sb_ingest.add_argument("--local_path", default='./data/sample',
                            help="Filepath for local data for database to ingest")
 
-    # Sub-parser to load new data and optionally save to s3 or local path
-    sb_load = subparsers.add_parser('load_new', description="Describe where local data is")
+    # Sub-parser to load new data into local ./data folder
+    sb_load = subparsers.add_parser('load_new', description="Query new data from APIs and save locally")
 
+    # Sub-parser to load data from local path into s3
     sb_s3 = subparsers.add_parser('load_s3', description="Describe where local data is")
     sb_s3.add_argument('--s3path', default='s3://2021-msia-423-ho-sara',
                          help="If used, will load data to s3")
-    sb_s3.add_argument('--local_path', default='./data',
+    sb_s3.add_argument('--local_path', default='./data/sample',
                          help="Where to load data to in S3")
 
     args = parser.parse_args()
@@ -95,11 +92,11 @@ if __name__ == '__main__':
     elif sp_used == 'ingest':
         tm = WikiNewsManager(engine_string=args.engine_string)
 
-        for file in os.listdir(args.file_path):
+        for file in os.listdir(args.local_path):
 
             # load wikipedia files using add_wiki()
             if 'wiki-entries' in file:
-                wiki_table = pd.read_csv(f'{args.file_path}/{file}')
+                wiki_table = pd.read_csv(f'{args.local_path}/{file}')
                 wiki_table = wiki_table.fillna('')
 
                 def remove_accents(s):
@@ -121,7 +118,7 @@ if __name__ == '__main__':
 
             # load news files using add_news()
             elif 'news-entries' in file:
-                news_table = pd.read_csv(f'{args.file_path}/{file}')
+                news_table = pd.read_csv(f'{args.local_path}/{file}')
                 news_table = news_table.fillna('')
                 file_date = ('-').join(file.split('-')[0:3])
                 file_date = datetime.strptime(file_date, '%b-%d-%Y')
