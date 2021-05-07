@@ -2,6 +2,8 @@ import os
 import argparse
 import logging.config
 from datetime import datetime
+import unicodedata
+
 
 from datetime import date
 import pandas as pd
@@ -39,6 +41,14 @@ if __name__ == '__main__':
         for file in os.listdir('./data/sample'):
             if 'wiki-entries' in file:
                 wiki_table = pd.read_csv(f'./data/sample/{file}')
+                wiki_table = wiki_table.fillna('')
+                def remove_accents(s):
+                    return unicodedata.normalize('NFD', s)
+
+                wiki_table['title'] = wiki_table['title'].apply(remove_accents)
+
+                wiki_table = wiki_table.drop_duplicates(['news_id', 'entity', 'title'])
+
                 file_date = ('-').join(file.split('-')[0:3])
                 file_date = datetime.strptime(file_date, '%b-%d-%Y')
 
@@ -51,6 +61,7 @@ if __name__ == '__main__':
 
             elif '.csv' in file:
                 news_table = pd.read_csv(f'./data/sample/{file}')
+                news_table = news_table.fillna('')
                 file_date = ('-').join(file.split('-')[0:3])
                 file_date = datetime.strptime(file_date, '%b-%d-%Y')
 
