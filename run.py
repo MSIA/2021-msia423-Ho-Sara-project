@@ -1,11 +1,17 @@
+import os
 import argparse
-
 import logging.config
-logging.config.fileConfig('config/logging/local.conf')
-logger = logging.getLogger('wikinews-pipeline')
+from datetime import datetime
+
+from datetime import date
+import pandas as pd
 
 from src.add_records import WikiNewsManager, create_db
 from config.flaskconfig import SQLALCHEMY_DATABASE_URI
+
+logging.config.fileConfig('config/logging/local.conf')
+logger = logging.getLogger('wikinews-pipeline')
+
 
 if __name__ == '__main__':
 
@@ -19,23 +25,40 @@ if __name__ == '__main__':
                            help="SQLAlchemy connection URI for database")
 
     # Sub-parser for ingesting new data
-    # sb_ingest = subparsers.add_parser("ingest", description="Add data to database")
-    # sb_ingest.add_argument("--artist", default="Emancipator", help="Artist of song to be added")
-    # sb_ingest.add_argument("--title", default="Minor Cause", help="Title of song to be added")
-    # sb_ingest.add_argument("--album", default="Dusk to Dawn", help="Album of song being added")
-    # sb_ingest.add_argument("--engine_string", default='sqlite:///data/tracks.db',
-    #                        help="SQLAlchemy connection URI for database")
+    sb_ingest = subparsers.add_parser("ingest", description="Add data to database")
+    sb_ingest.add_argument("--engine_string", default='sqlite:///data/entries.db',
+                           help="SQLAlchemy connection URI for database")
 
     args = parser.parse_args()
     sp_used = args.subparser_name
     if sp_used == 'create_db':
         create_db(args.engine_string)
-    # elif sp_used == 'ingest':
-    #     tm = TrackManager(engine_string=args.engine_string)
-    #     tm.add_track(args.title, args.artist, args.album)
-    #     tm.close()
+    elif sp_used == 'ingest':
+        tm = WikiNewsManager(engine_string=args.engine_string)
+
+        for file in os.listdir('./data/sample'):
+            if 'wiki-entries' in file:
+                wiki_table = pd.read_csv(f'./data/sample/{file}')
+                file_date = ('-').join(file.split('-')[0:3])
+                file_date = datetime.strptime(file_date, '%b-%d-%Y')
+
+                for _, row in wiki_table.iterrows():
+                    news_id, entity, label, title, category, revised, url, wiki, image = row
+                    tm.add_wiki(file_date, news_id, entity, label,
+                                title, category, revised,
+                                url, wiki, image)
+                logger.info(f"data in {file} added to 'wiki' table")
+
+            elif '.csv' in file:
+                news_table = pd.read_csv(f'./data/sample/{file}')
+                file_date = ('-').join(file.split('-')[0:3])
+                file_date = datetime.strptime(file_date, '%b-%d-%Y')
+
+                for _, row in news_table.iterrows():
+                    news_id, news = row
+                    tm.add_news(file_date, news_id, news)
+                logger.info(f"data in {file} added to 'news' table")
+
+            tm.close()
     else:
         parser.print_help()
-
-
-
