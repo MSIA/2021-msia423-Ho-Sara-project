@@ -120,40 +120,78 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 
 Top headlines are taken from https://newsapi.org/. An API key is needed to load daily data for this app.
 
+To enable loading new data, create a file `./src/config.py`
+```py
+NEWS_API_KEY = '<NEWS_API_KEY>'
+```
+
 ### 2. Wikipedia API
 
 Wikipedia queries use Wikipedia's own API https://www.mediawiki.org/wiki/API:Etiquette. There is no need to generate an API key.
 
+Without an News API key, `load_new` commands will not run. You can generate one for free and add it to the environment.
+`export NEWS_API_KEY=<MY_KEY_HERE>`
+Otherwise, you can skip loading new data. The rest of the commands will default to using existing data in local path `./data/sample`
+
 ## Running the app
 ### 1. Initialize the database 
 
-#### Create the database 
-To create the database in the location configured in `config.py` run: 
+### Load new data via API.
 
-`python run.py create_db --engine_string=<engine_string>`
+Newly imported data can only be saved to `./data`
 
-By default, `python run.py create_db` creates a database at `sqlite:///data/entries.db`.
+`python run.py load_new`
 
-#### Adding songs 
-To add songs to the database:
+### Create a new database and ingest data to local .db.
 
-`python run.py ingest --engine_string=<engine_string> --file_path=<file_path>`
+By default, the database will be created locally at `sqlite:///data/entries.db`. By default, the data ingested will be sourced from `./data/sample`
 
-By default, `python run.py ingest` adds the .csv files contained in `./data/sample` to the SQLite database located in `sqlite:///data/entries.db`.
+`python run.py create_db`
 
-#### Defining your engine string 
-A SQLAlchemy database connection is defined by a string with the following format:
+`python run.py ingest`
 
-`dialect+driver://username:password@host:port/database`
+### Configure command to create database and ingest data remotely.
 
-The `+dialect` is optional and if not provided, a default is used.
+There may be warnings regarding `Incorrect string value:` due to encoding constraints.
 
-##### Local SQLite database 
+```
+python run.py create_db \
+--engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
 
-A local SQLite database can be created for development and local testing. It does not require a username or password and replaces the host and port with the path to the database file: 
+python run.py ingest \
+--engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
+```
 
-```python
-engine_string='sqlite:///data/entries.db'
+### Load data into s3.
+
+By default, `load_s3` will load the data from local path `./data/sample` into s3
+`python run.py load_s3`
+
+If you want to load the newly loaded daily data, specify `--local_path ./data`
+`python run.py load_s3 --local_path ./data`
+
+### Docker:
+
+Build image
+```
+docker build -f app/Dockerfile -t wikinews .
+```
+
+Create database at .db file.
+```
+docker run \
+	-e AWS_ACCESS_KEY_ID \
+	-e AWS_SECRET_ACCESS_KEY \
+	wikinews run.py create_db
+```
+
+Create database at remote MSQL db.
+```
+docker run \
+	-e AWS_ACCESS_KEY_ID \
+	-e AWS_SECRET_ACCESS_KEY \
+	wikinews run.py create_db \
+  --engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
 ```
 
 ### 2. Configure Flask app 
@@ -232,7 +270,7 @@ then run the `docker run` command:
 docker run -p 5000:5000 --name test wikinews app.py
 ```
 
-The new image defines the entry point command as `python3`. Building the image this way will require initializing the database prior to building the image so that it is copied over, rather than created when the container is run. Therefore, please **do the step [Create the database with a single song](#create-the-database-with-a-single-song) above before building the image**.
+The new image defines the entry point command as `python3`. Building the image this way will require initializing the database prior to building the image so that it is copied over, rather than created when the container is run. Therefore, please **create the database above before building the image**.
 
 # Testing
 
