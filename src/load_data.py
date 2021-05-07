@@ -1,15 +1,26 @@
 from datetime import date
+import logging
+import logging.config
+
 import spacy
 import pandas as pd
 
-from api_helpers import *
-from sim import *
+from src.api_helpers import *
 
-nlp = spacy.load("en_core_web_sm")
+logging.config.fileConfig("config/logging/local.conf",
+                          disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 def load_news():
-    print('loading news')
+    """Create pandas dataframe from daily headlines from News API
+    Args:
+        None
+
+    Returns: obj `pandas.DataFrame`
+
+    """
+    logger.info('loading news from API')
     data = news_top()
     news = []
     for article in data['articles']:
@@ -26,18 +37,27 @@ def load_news():
     news_table.columns = ['news_id', 'news']
 
     today = date.today().strftime("%b-%d-%Y")
-    news_table.to_csv(f'./data/{today}-us-top-headlines.csv', index=False)
+    news_table.to_csv(f'./data/{today}-news-entries', index=False)
+    logger.info(f"----Saved to csv data for {len(news_table)} headlines...")
     return news_table
 
 
 def load_wiki(news_table):
-    print('matching news with wiki entries')
+    """Match news with wikipedia articles
+    Args:
+        pandas dataframe with news headlines
+
+    Returns: obj `pandas.DataFrame`
+
+    """
+    nlp = spacy.load("en_core_web_sm")
+
+    logger.info('matching news with wiki entries from Wikipedia API')
     table_data = []
     for _, row in news_table.iterrows():
         news_id, news = row
 
-        print('------------------')
-        print(news)
+        logger.info(f"----Processing '{news[0:25]}...'")
 
         # start to break query into named entities
         doc = nlp(news)
@@ -94,6 +114,6 @@ def load_wiki(news_table):
 
     table = pd.DataFrame(table_data)
     today = date.today().strftime("%b-%d-%Y")
-    table.to_csv(f'./data/{today}-wiki-entries-for-us-top-headlines.csv',
+    table.to_csv(f'./data/{today}-wiki-entries.csv',
                  index=False)
     return table
