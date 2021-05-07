@@ -1,5 +1,6 @@
-import logging.config
 from datetime import datetime
+import logging
+import logging.config
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
@@ -7,8 +8,10 @@ from sqlalchemy import Column, Integer, String, DateTime, MetaData
 from sqlalchemy.orm import sessionmaker
 from flask_sqlalchemy import SQLAlchemy
 
-logger = logging.getLogger(__name__)
-logger.setLevel("INFO")
+logging.config.fileConfig("config/logging/local.conf",
+                          disable_existing_loggers=False)
+logger = logging.getLogger('__name__')
+logger.setLevel("DEBUG")
 
 Base = declarative_base()
 
@@ -44,7 +47,7 @@ class News(Base):
     news = Column(String(10000), unique=False, nullable=False)
 
     def __repr__(self):
-        return '<Track %r>' % self.news_id
+        return '<News id %r>' % self.news_id
 
 
 def drop_ifexists(engine_string, table_name):
@@ -54,7 +57,7 @@ def drop_ifexists(engine_string, table_name):
 
     table = metadata.tables.get(table_name)
     if table is not None:
-        logging.info(f'Deleting {table_name} table')
+        logger.info(f'Deleting {table_name} table')
         base.metadata.drop_all(engine, [table], checkfirst=True)
 
 
@@ -84,10 +87,10 @@ class WikiNewsManager:
             app: Flask - Flask app
             engine_string: str - Engine string
         """
-        if app:
-            self.db = SQLAlchemy(app)
-            self.session = self.db.session
-        elif engine_string:
+        # if app:
+        #     self.db = SQLAlchemy(app)
+        #     self.session = self.db.session
+        if engine_string:
             engine = sqlalchemy.create_engine(engine_string)
             Session = sessionmaker(bind=engine)
             self.session = Session()
@@ -104,17 +107,19 @@ class WikiNewsManager:
 
     def add_news(self, date: datetime, news_id: int, news: str) -> None:
         """Seeds an existing database with additional news.
-
         Args:
+            date: `datetime` of day that the headlines are downloaded
+            news_id: `int` index of the headline for the daily news
+            news: `str` headline and description the news API
 
-        Returns:None
+        Returns: None
 
         """
         session = self.session
         news_record = News(date=date, news_id=news_id, news=news)
         session.add(news_record)
         session.commit()
-        logger.info(f"'{news[0:20]}' added to database with id {str(news_id)}")
+        logger.debug(f"'{news[0:20]}' added to database with id {str(news_id)}")
 
     def add_wiki(self, date: datetime, news_id: int, entity: str, label: str, title: str, category: str, revised: str, url: str, wiki: str, image: str) -> None:
         """Seeds an existing database with additional wiki recommendations.
@@ -138,4 +143,4 @@ class WikiNewsManager:
                            image=image)
         session.add(wiki_record)
         session.commit()
-        logger.info(f"'{title}' added to database corresponding to news_id {str(news_id)}")
+        logger.debug(f"'{title}' added to database corresponding to news_id {str(news_id)}")
