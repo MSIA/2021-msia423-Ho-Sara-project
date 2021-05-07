@@ -1,6 +1,7 @@
 # WikiNews
 
 Author: Sara Ho
+
 QA: Haozhang Deng
 
 <!-- toc -->
@@ -90,13 +91,12 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 │   ├── logging/                      <- Configuration of python loggers
 │   ├── flaskconfig.py                <- Configurations for Flask API 
 │
-├── data                              <- Folder that contains data used or generated. Only the external/ and sample/ subdirectories are tracked by git. 
+├── data                              <- Folder that contains data used or generated.
+│   ├── sample/
 │
 ├── deliverables/                     <- Any white papers, presentations, final work products that are presented or delivered to a stakeholder 
 │
 ├── docs/                             <- Sphinx documentation based on Python docstrings. Optional for this project. 
-│
-├── figures/                          <- Generated graphics and figures to be used in reporting, documentation, etc
 │
 ├── models/                           <- Trained model objects (TMOs), model predictions, and/or model summaries
 │
@@ -115,6 +115,15 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 ├── requirements.txt                  <- Python package dependencies 
 ```
 
+## Sourcing the data
+### 1. News API
+
+Top headlines are taken from https://newsapi.org/. An API key is needed to load daily data for this app.
+
+### 2. Wikipedia API
+
+Wikipedia queries use Wikipedia's own API https://www.mediawiki.org/wiki/API:Etiquette. There is no need to generate an API key.
+
 ## Running the app
 ### 1. Initialize the database 
 
@@ -123,38 +132,29 @@ To create the database in the location configured in `config.py` run:
 
 `python run.py create_db --engine_string=<engine_string>`
 
-By default, `python run.py create_db` creates a database at `sqlite:///data/tracks.db`.
+By default, `python run.py create_db` creates a database at `sqlite:///data/entries.db`.
 
 #### Adding songs 
 To add songs to the database:
 
-`python run.py ingest --engine_string=<engine_string> --artist=<ARTIST> --title=<TITLE> --album=<ALBUM>`
+`python run.py ingest --engine_string=<engine_string> --file_path=<file_path>`
 
-By default, `python run.py ingest` adds *Minor Cause* by Emancipator to the SQLite database located in `sqlite:///data/tracks.db`.
+By default, `python run.py ingest` adds the .csv files contained in `./data/sample` to the SQLite database located in `sqlite:///data/entries.db`.
 
 #### Defining your engine string 
 A SQLAlchemy database connection is defined by a string with the following format:
 
 `dialect+driver://username:password@host:port/database`
 
-The `+dialect` is optional and if not provided, a default is used. For a more detailed description of what `dialect` and `driver` are and how a connection is made, you can see the documentation [here](https://docs.sqlalchemy.org/en/13/core/engines.html). We will cover SQLAlchemy and connection strings in the SQLAlchemy lab session on 
+The `+dialect` is optional and if not provided, a default is used.
+
 ##### Local SQLite database 
 
 A local SQLite database can be created for development and local testing. It does not require a username or password and replaces the host and port with the path to the database file: 
 
 ```python
-engine_string='sqlite:///data/tracks.db'
-
+engine_string='sqlite:///data/entries.db'
 ```
-
-The three `///` denote that it is a relative path to where the code is being run (which is from the root of this directory).
-
-You can also define the absolute path with four `////`, for example:
-
-```python
-engine_string = 'sqlite://///Users/cmawer/Repos/2020-MSIA423-template-repository/data/tracks.db'
-```
-
 
 ### 2. Configure Flask app 
 
@@ -165,11 +165,10 @@ DEBUG = True  # Keep True for debugging, change to False when moving to producti
 LOGGING_CONFIG = "config/logging/local.conf"  # Path to file that configures Python logger
 HOST = "0.0.0.0" # the host that is running the app. 0.0.0.0 when running locally 
 PORT = 5000  # What port to expose app on. Must be the same as the port exposed in app/Dockerfile 
-SQLALCHEMY_DATABASE_URI = 'sqlite:///data/tracks.db'  # URI (engine string) for database that contains tracks
-APP_NAME = "penny-lane"
+SQLALCHEMY_DATABASE_URI = 'sqlite:///data/entries.db'  # URI (engine string) for database that contains tracks
+APP_NAME = "wikinews"
 SQLALCHEMY_TRACK_MODIFICATIONS = True 
 SQLALCHEMY_ECHO = False  # If true, SQL for queries made will be printed
-MAX_ROWS_SHOW = 100 # Limits the number of rows returned from the database 
 ```
 
 ### 3. Run the Flask app 
@@ -233,7 +232,7 @@ then run the `docker run` command:
 docker run -p 5000:5000 --name test wikinews app.py
 ```
 
-The new image defines the entry point command as `python3`. Building the sample PennyLane image this way will require initializing the database prior to building the image so that it is copied over, rather than created when the container is run. Therefore, please **do the step [Create the database with a single song](#create-the-database-with-a-single-song) above before building the image**.
+The new image defines the entry point command as `python3`. Building the image this way will require initializing the database prior to building the image so that it is copied over, rather than created when the container is run. Therefore, please **do the step [Create the database with a single song](#create-the-database-with-a-single-song) above before building the image**.
 
 # Testing
 
@@ -246,7 +245,7 @@ python -m pytest
 Using Docker, run the following, if the image has not been built yet:
 
 ```bash
- docker build -f app/Dockerfile_python -t pennylane .
+ docker build -f app/Dockerfile_python -t wikinews .
 ```
 
 To run the tests, run: 
