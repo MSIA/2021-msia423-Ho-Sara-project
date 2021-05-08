@@ -81,6 +81,9 @@ def news_top():
     Returns:
         `JSON` data with daily news headlines for the US
     """
+    if NEWS_API_KEY == '' or NEWS_API_KEY is None:
+        raise Exception("Make sure NEWS_API_KEY is in environment")
+
     S = requests.Session()
     URL = "https://newsapi.org/v2/top-headlines?"
     PARAMS = {'apiKey': NEWS_API_KEY,
