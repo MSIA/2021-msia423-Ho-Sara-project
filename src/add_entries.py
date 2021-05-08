@@ -51,6 +51,9 @@ class News(Base):
 
 
 def drop_ifexists(engine_string, table_name):
+    """Drop a table via engine_string if it exists
+    to make way for ingesting new data
+    """
     engine = sqlalchemy.create_engine(engine_string)
     base = declarative_base()
     metadata = MetaData(engine, reflect=True)
@@ -64,11 +67,6 @@ def drop_ifexists(engine_string, table_name):
 def create_db(engine_string: str) -> None:
     """Create database from provided engine string
     sqlite or rds instance engine
-    Args:
-        engine_string: str - Engine string
-
-    Returns: None
-
     """
     engine = sqlalchemy.create_engine(engine_string)
 
@@ -87,9 +85,9 @@ class WikiNewsManager:
             app: Flask - Flask app
             engine_string: str - Engine string
         """
-        # if app:
-        #     self.db = SQLAlchemy(app)
-        #     self.session = self.db.session
+        if app:
+            self.db = SQLAlchemy(app)
+            self.session = self.db.session
         if engine_string:
             engine = sqlalchemy.create_engine(engine_string)
             Session = sessionmaker(bind=engine)
@@ -111,9 +109,6 @@ class WikiNewsManager:
             date: `datetime` of day that the headlines are downloaded
             news_id: `int` index of the headline for the daily news
             news: `str` headline and description the news API
-
-        Returns: None
-
         """
         session = self.session
         news_record = News(date=date, news_id=news_id, news=news)
@@ -123,11 +118,6 @@ class WikiNewsManager:
 
     def add_wiki(self, date: datetime, news_id: int, entity: str, label: str, title: str, category: str, revised: str, url: str, wiki: str, image: str) -> None:
         """Seeds an existing database with additional wiki recommendations.
-
-        Args:
-
-        Returns:None
-
         """
 
         session = self.session

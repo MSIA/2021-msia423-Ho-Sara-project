@@ -30,12 +30,6 @@ logger = logging.getLogger(__name__)
 
 def upload_files_to_s3(local_path, s3path):
     """Upload local files to s3
-    Args:
-        local_path: `str`
-        s3path: `str`
-
-    Returns: None
-
     """
 
     s3bucket = s3path.replace('s3://', '')

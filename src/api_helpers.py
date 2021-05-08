@@ -11,6 +11,13 @@ NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
 
 
 def wiki_query(query):
+    """ Search Wikipedia for relevant articles
+    Args:
+        query: `str` search query
+
+    Returns:
+        `JSON` data with wikipedia article search results
+    """
     S = requests.Session()
     URL = "https://en.wikipedia.org/w/api.php"
 
@@ -24,6 +31,13 @@ def wiki_query(query):
 
 
 def wiki_pagecontent(title):
+    """ Obtain content from a Wikipedia page
+    Args:
+        title: `str` with title of Wikipedia article
+
+    Returns:
+        `JSON` data with content from the article
+    """
     S = requests.Session()
     URL = "https://en.wikipedia.org/w/api.php"
 
@@ -41,6 +55,13 @@ def wiki_pagecontent(title):
 
 
 def wiki_pageinfo(title):
+    """ Obtain metadata about a Wikipedia page
+    Args:
+        title: `str` with title
+
+    Returns:
+        `JSON` data with info about the article
+    """
     S = requests.Session()
     URL = "https://en.wikipedia.org/w/api.php"
 
@@ -55,20 +76,11 @@ def wiki_pageinfo(title):
     return R.json()
 
 
-def news_query(query):
-    S = requests.Session()
-    URL = "https://newsapi.org/v2/everything?"
-    PARAMS = {'apiKey': NEWS_API_KEY,
-              'q': query,
-              'from': '2021-04-04',
-              'to': '2021-04-05'}
-    S.get(url=URL, params=PARAMS)
-
-    R = S.get(url=URL, params=PARAMS)
-    return R.json()
-
-
 def news_top():
+    """
+    Returns:
+        `JSON` data with daily news headlines for the US
+    """
     S = requests.Session()
     URL = "https://newsapi.org/v2/top-headlines?"
     PARAMS = {'apiKey': NEWS_API_KEY,
