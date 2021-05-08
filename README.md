@@ -10,10 +10,11 @@ QA: Haozhang Deng
 - [Directory structure](#directory-structure)
 - [Running the app](#running-the-app)
   * [1. Initialize the database](#1-initialize-the-database)
-    + [Create the database with a single song](#create-the-database-with-a-single-song)
-    + [Adding additional songs](#adding-additional-songs)
-    + [Defining your engine string](#defining-your-engine-string)
-      - [Local SQLite database](#local-sqlite-database)
+    + [Load new data via API](#Load-new-data-via-API)
+    + [Set up local database](#Set-up-local-database)
+    + [Set up database via engine](#Set-up-database-via-engine)
+    + [Load data into s3](#Load-data-into-s3)
+    + [Set up database in Docker](#Set-up-database-in-Docker)
   * [2. Configure Flask app](#2-configure-flask-app)
   * [3. Run the Flask app](#3-run-the-flask-app)
 - [Running the app in Docker](#running-the-app-in-docker)
@@ -25,9 +26,13 @@ QA: Haozhang Deng
 
 # Project charter
 
+<img src="/figures/news.jpg" alt="News" width="200"/>
+
 The fast-paced nature of online news delivery and social media means that readers today regularly ingest news headlines without meaningful context. This app offers an alternative way to understand the news by providing context through Wikipedia articles.
 
 ## Vision
+
+<img src="/figures/wikipedia.png" alt="Wiki" width="200"/>
 
 To display daily news content and suggest Wikipedia articles that are relevant to them. Users can read the news in a way is engaging and interactive, but with minimal bias and misinformation.
 
@@ -98,6 +103,8 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 │
 ├── docs/                             <- Sphinx documentation based on Python docstrings. Optional for this project. 
 │
+├── figures/                          <- Figures for deliverables and README.md
+|
 ├── models/                           <- Trained model objects (TMOs), model predictions, and/or model summaries
 │
 ├── notebooks/
@@ -116,20 +123,8 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 ```
 
 ## Sourcing the data
-### 1. News API
 
-Top headlines are taken from https://newsapi.org/. An API key is needed to load daily data for this app.
-
-To enable loading new data, create a file `./src/config.py`
-```py
-NEWS_API_KEY = '<NEWS_API_KEY>'
-```
-
-### 2. Wikipedia API
-
-Wikipedia queries use Wikipedia's own API https://www.mediawiki.org/wiki/API:Etiquette. There is no need to generate an API key.
-
-Without an News API key, `load_new` commands will not run. You can generate one for free and add it to the environment.
+Without an News API key, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment.
 `export NEWS_API_KEY=<MY_KEY_HERE>`
 Otherwise, you can skip loading new data. The rest of the commands will default to using existing data in local path `./data/sample`
 
@@ -138,61 +133,89 @@ Otherwise, you can skip loading new data. The rest of the commands will default 
 
 ### Load new data via API.
 
-Newly imported data can only be saved to `./data`
+Newly imported data can only be saved to `./data`.
 
 `python run.py load_new`
 
-### Create a new database and ingest data to local .db.
+### Set up local database
 
-By default, the database will be created locally at `sqlite:///data/entries.db`. By default, the data ingested will be sourced from `./data/sample`
+To create database:
+```bash
+python run.py create_db
+```
 
-`python run.py create_db`
+By default, the database will be created locally at `sqlite:///data/entries.db`. 
 
-`python run.py ingest`
+To ingest data into database:
+```bash
+python run.py ingest
+```
 
-### Configure command to create database and ingest data remotely.
+By default, the data ingested will be sourced from `./data/sample`
+
+### Set up database via engine
 
 There may be warnings regarding `Incorrect string value:` due to encoding constraints.
 
-```
+To create database:
+```bash
 python run.py create_db \
 --engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
+```
 
+To ingest data into database:
+```bash
 python run.py ingest \
 --engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
 ```
 
-### Load data into s3.
+### Load data into s3
 
-By default, `load_s3` will load the data from local path `./data/sample` into s3
-`python run.py load_s3`
+```bash
+python run.py load_s3
+```
+By default, `load_s3` will load the data from local path `./data/sample` into s3: 
 
-If you want to load the newly loaded daily data, specify `--local_path ./data`
-`python run.py load_s3 --local_path ./data`
+If you want to load the newly loaded daily data, specify `--local_path`: 
+```bash
+python run.py load_s3 --local_path ./data
+```
 
-### Docker:
+### Set up database in Docker
 
 Build image
-```
+```bash
 docker build -f app/Dockerfile -t wikinews .
 ```
 
 Create database at .db file.
-```
+```bash
 docker run \
 	-e AWS_ACCESS_KEY_ID \
 	-e AWS_SECRET_ACCESS_KEY \
 	wikinews run.py create_db
 ```
 
-Create database at remote MSQL db.
-```
+Create database at remote MySQL db.
+```bash
 docker run \
 	-e AWS_ACCESS_KEY_ID \
 	-e AWS_SECRET_ACCESS_KEY \
 	wikinews run.py create_db \
   --engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
 ```
+
+If using MySQL, access interface via docker,
+```bash
+docker run -it --rm \
+    mysql:5.7.33 \
+    mysql \
+    -h${MYSQL_HOST} \
+    -u${MYSQL_USER} \
+    -p${MYSQL_PASSWORD}
+```
+
+![Wiki](/figures/mysqlschema.png)
 
 ### 2. Configure Flask app 
 
@@ -223,14 +246,10 @@ You should now be able to access the app at http://0.0.0.0:5000/ in your browser
 
 ### 1. Build the image 
 
-The Dockerfile for running the flask app is in the `app/` folder. To build the image, run from this directory (the root of the repo): 
-
 ```bash
  docker build -f app/Dockerfile -t wikinews .
 ```
 
-This command builds the Docker image, with the tag `wikinews`, based on the instructions in `app/Dockerfile` and the files existing in this directory.
- 
 ### 2. Run the container 
 
 To run the app, run from this directory: 
@@ -254,23 +273,6 @@ docker kill test
 
 where `test` is the name given in the `docker run` command.
 
-### Example using `python3` as an entry point
-
-We have included another example of a Dockerfile, `app/Dockerfile_python` that has `python3` as the entry point such that when you run the image as a container, the command `python3` is run, followed by the arguments given in the `docker run` command after the image name. 
-
-To build this image: 
-
-```bash
- docker build -f app/Dockerfile_python -t wikinews .
-```
-
-then run the `docker run` command: 
-
-```bash
-docker run -p 5000:5000 --name test wikinews app.py
-```
-
-The new image defines the entry point command as `python3`. Building the image this way will require initializing the database prior to building the image so that it is copied over, rather than created when the container is run. Therefore, please **create the database above before building the image**.
 
 # Testing
 
@@ -289,6 +291,6 @@ Using Docker, run the following, if the image has not been built yet:
 To run the tests, run: 
 
 ```bash
- docker run penny -m pytest
+ docker run wikinews -m pytest
 ```
  
