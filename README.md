@@ -188,6 +188,26 @@ Build image
 docker build -f app/Dockerfile -t wikinews .
 ```
 
+Load new data
+```
+docker run \
+  -e NEWS_API_KEY \
+  -e AWS_ACCESS_KEY_ID \
+  -e AWS_SECRET_ACCESS_KEY \
+  -e PYTHONIOENCODING=utf-8 \
+  wikinews run.py load_new
+```
+
+Put new data into s3 from non-default `./data` (assuming new data has been loaded)
+```
+docker run \
+  -e NEWS_API_KEY \
+  -e AWS_ACCESS_KEY_ID \
+  -e AWS_SECRET_ACCESS_KEY \
+  -e PYTHONIOENCODING=utf-8 \
+  wikinews run.py load_3 --local_path ./data
+```
+
 Create database at .db file.
 ```bash
 docker run \
