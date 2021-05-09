@@ -56,6 +56,8 @@ def load_news(NEWS_API_KEY, directory='./data'):
 
 
 def news2entities(news):
+    """ Use space to convert a news description into lists of entities and labels """
+
     nlp = spacy.load("en_core_web_sm")
     doc = nlp(news)
 
