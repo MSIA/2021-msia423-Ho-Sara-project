@@ -10,9 +10,11 @@ import pandas as pd
 import boto3
 import botocore
 
-from src.load_data import *
+from src.load_data import load_wiki, load_news
 from src.add_entries import WikiNewsManager, create_db
 from config.flaskconfig import SQLALCHEMY_DATABASE_URI
+
+NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
 
 logging.basicConfig(format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s', level=logging.DEBUG)
 logging.getLogger("botocore").setLevel(logging.ERROR)
@@ -29,8 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def upload_files_to_s3(local_path, s3path):
-    """Upload local files to s3
-    """
+    """ Upload local files to s3 """
 
     s3bucket = s3path.replace('s3://', '')
 
@@ -41,12 +42,11 @@ def upload_files_to_s3(local_path, s3path):
     files = [file for file in files if '.csv' in file]
     for file in files:
         try:
-            logger.info(f'Try uploading uploaded from {local_path}/{file} to {s3path}/raw/{file}')
             bucket.upload_file(f'{local_path}/{file}', f'raw/{file}')
         except botocore.exceptions.NoCredentialsError:
             logger.error('Please provide AWS credentials via AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env variables.')
         else:
-            logger.info(f'Data uploaded from {local_path}/{file} to {s3path}/raw/{file}')
+            logger.info('Data uploaded to %s', {s3path} + '/raw/' + {file})
 
 
 if __name__ == '__main__':
@@ -73,9 +73,9 @@ if __name__ == '__main__':
     # Sub-parser to load data from local path into s3
     sb_s3 = subparsers.add_parser('load_s3', description="Describe where local data is")
     sb_s3.add_argument('--s3path', default='s3://2021-msia-423-ho-sara',
-                         help="If used, will load data to s3")
+                       help="If used, will load data to s3")
     sb_s3.add_argument('--local_path', default='./data/sample',
-                         help="Where to load data to in S3")
+                       help="Where to load data to in S3")
 
     args = parser.parse_args()
     sp_used = args.subparser_name
@@ -125,8 +125,8 @@ if __name__ == '__main__':
             tm.close()
 
     elif sp_used == 'load_new':
-        # this will save csv files into local path with new daily data
-        news = load_news()
+        # by default, this will save new csv files into ./data
+        news = load_news(NEWS_API_KEY)
         load_wiki(news)
 
     elif sp_used == 'load_s3':
