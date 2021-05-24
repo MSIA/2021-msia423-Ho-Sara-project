@@ -22,11 +22,12 @@ class Wiki(Base):
 
     __tablename__ = 'wiki'
 
-    date = Column(DateTime, primary_key=True)
-    news_id = Column(Integer, primary_key=True)
-    entity = Column(String(100), primary_key=True)
+    id = Column(Integer, primary_key=True)
+    date = Column(DateTime)
+    news_id = Column(Integer)
+    entity = Column(String(100))
     label = Column(String(100), unique=False, nullable=True)
-    title = Column(String(100), unique=False, primary_key=True)
+    title = Column(String(100), unique=False)
     category = Column(String(100), unique=False, nullable=True)
     revised = Column(String(100), unique=False, nullable=False)
     url = Column(String(100), unique=False, nullable=False)
@@ -122,7 +123,7 @@ class WikiNewsManager:
 
         session = self.session
         wiki_record = Wiki(date=date,
-                           news_id=news_id, 
+                           news_id=news_id,
                            entity=entity,
                            label=label,
                            title=title,
