@@ -7,7 +7,7 @@ from flask import render_template, request, redirect, url_for
 from config.flaskconfig import *
 
 # Initialize the database session
-from src.add_records import Wiki, News, WikiNewsManager
+from src.add_entries import Wiki, News, WikiNewsManager
 
 # Initialize the Flask application
 app = Flask(__name__, 
@@ -41,8 +41,14 @@ def index():
 
     try:
         wiki_entities = manager.session.query(Wiki).all()
+        news_entities = manager.session.query(News).all()
+
+
+        print(wiki_entities)
         logger.debug("Index page accessed")
-        return render_template('index.html', wiki_entities=wiki_entities)
+        return render_template('index.html', 
+            wiki_entities=wiki_entities,
+            news_entities=news_entities)
     except:
         traceback.print_exc()
         logger.warning("Not able to display wikinews, error page returned")
@@ -50,6 +56,6 @@ def index():
 
 
 if __name__ == '__main__':
-    app.run(debug=app.config["DEBUG"], 
-            port=app.config["PORT"], 
+    app.run(debug=app.config["DEBUG"],
+            port=app.config["PORT"],
             host=app.config["HOST"])

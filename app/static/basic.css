@@ -1,8 +1,23 @@
-@import url(http://fonts.googleapis.com/css?family=Open+Sans:400,700,600);
-
 body {
   height: 100%;
+  padding: 200px;
   -webkit-font-smoothing: antialiased;
   font-family: 'Open Sans', sans-serif;
-  background-color:#cdced8;
+  background-color:#fbfbfa;
+}
+
+* {
+  font-family: Georgia, serif; 
+  font-style: normal; 
+  font-variant: normal; 
+}
+
+h1 {
+  padding-bottom: 50px;
+}
+
+#head{
+  text-align: center;
+  padding-bottom: 200px; 
+  padding-top: 100px; 
 }
