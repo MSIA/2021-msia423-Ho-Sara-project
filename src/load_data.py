@@ -20,7 +20,7 @@ def load_news(NEWS_API_KEY, directory='./data'):
         NEWS_API_KEY: `str` generated from https://newsapi.org/
         directory: local directory to save .csv file
 
-    Returns: 
+    Returns:
         obj `pandas.DataFrame`
     """
     today = date.today().strftime("%b-%d-%Y")
@@ -32,6 +32,9 @@ def load_news(NEWS_API_KEY, directory='./data'):
         logger.error(f'Error {e} when retrieving headlines')
 
     news = []
+    content = []
+    img = []
+    url = []
     for article in data['articles']:
 
         headline = article['title']
@@ -39,11 +42,17 @@ def load_news(NEWS_API_KEY, directory='./data'):
             headline += article['description']
 
         # remove publication information
-        headline = headline.replace(article['source']['name'], '')
+        headline = headline.replace(article['source']['name'], ' ')
         news.append(headline)
+        content.append(article['content'])
+        img.append(article['urlToImage'])
+        url.append(article['url'])
 
-    news_table = pd.DataFrame(news).reset_index()
-    news_table.columns = ['news_id', 'news']
+    news_table = pd.DataFrame({'news': news,
+                               'content': content,
+                               'img': img,
+                               'url': url}).reset_index()
+    news_table.columns = ['news_id', 'news', 'content', 'img', 'url']
 
     try:
         news_table.to_csv(f'{directory}/{today}-news-entries.csv', index=False)
@@ -95,7 +104,7 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
 
     table_data = []
     for _, row in news_table.iterrows():
-        news_id, news = row
+        news_id, news, content, _, _ = row
 
         logger.info("----Processing '%s...'", news[0:25])
 

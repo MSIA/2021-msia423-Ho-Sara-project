@@ -46,6 +46,9 @@ class News(Base):
     date = Column(DateTime, primary_key=True)
     news_id = Column(Integer, primary_key=True)
     news = Column(String(10000), unique=False, nullable=False)
+    content = Column(String(100000), unique=False, nullable=False)
+    img = Column(String(100), unique=False, nullable=False)
+    url = Column(String(100), unique=False, nullable=False)
 
     def __repr__(self):
         return '<News id %r>' % self.news_id
@@ -104,7 +107,7 @@ class WikiNewsManager:
         """
         self.session.close()
 
-    def add_news(self, date: datetime, news_id: int, news: str) -> None:
+    def add_news(self, date: datetime, news_id: int, news: str, content: str, img: str, url: str) -> None:
         """Seeds an existing database with additional news.
         Args:
             date: `datetime` of day that the headlines are downloaded
@@ -112,7 +115,9 @@ class WikiNewsManager:
             news: `str` headline and description the news API
         """
         session = self.session
-        news_record = News(date=date, news_id=news_id, news=news)
+        news_record = News(date=date, news_id=news_id,
+                           news=news, content=content,
+                           img=img, url=url)
         session.add(news_record)
         session.commit()
         logger.debug(f"'{news[0:20]}' added to database with id {str(news_id)}")

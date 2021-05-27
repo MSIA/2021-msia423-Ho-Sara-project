@@ -49,6 +49,41 @@ def upload_files_to_s3(local_path, s3path):
             logger.info('Data uploaded to %s', {s3path} + '/raw/' + {file})
 
 
+def remove_accents(s):
+    return unicodedata.normalize('NFD', s)
+
+
+def add_wiki_file(file):
+    wiki_table = pd.read_csv(f'{args.local_path}/{file}')
+    wiki_table = wiki_table.fillna('')
+
+    wiki_table['title'] = wiki_table['title'].apply(remove_accents)
+    # when accents are removed, the primary keys may no longer be unique
+    wiki_table = wiki_table.drop_duplicates(['news_id', 'entity', 'title'])
+
+    file_date = ('-').join(file.split('-')[0:3])
+    file_date = datetime.strptime(file_date, '%b-%d-%Y')
+
+    for _, row in wiki_table.iterrows():
+        news_id, entity, label, title, category, revised, url, wiki, image = row
+        tm.add_wiki(file_date, news_id, entity, label,
+                    title, category, revised,
+                    url, wiki, image)
+    logger.info(f"data in {file} added to 'wiki' table")
+
+
+def add_news_file(file):
+    news_table = pd.read_csv(f'{args.local_path}/{file}')
+    news_table = news_table.fillna('')
+    file_date = ('-').join(file.split('-')[0:3])
+    file_date = datetime.strptime(file_date, '%b-%d-%Y')
+
+    for _, row in news_table.iterrows():
+        news_id, news, content, img, url = row
+        tm.add_news(file_date, news_id, news, content, img, url)
+    logger.info(f"data in {file} added to 'news' table")
+
+
 if __name__ == '__main__':
 
     # Add parsers for both creating a database and adding entries to it
@@ -88,39 +123,11 @@ if __name__ == '__main__':
 
         for file in os.listdir(args.local_path):
 
-            # load wikipedia files using add_wiki()
             if 'wiki-entries' in file:
-                wiki_table = pd.read_csv(f'{args.local_path}/{file}')
-                wiki_table = wiki_table.fillna('')
+                add_wiki_file(file)
 
-                def remove_accents(s):
-                    return unicodedata.normalize('NFD', s)
-
-                wiki_table['title'] = wiki_table['title'].apply(remove_accents)
-                # when accents are removed, the primary keys may no longer be unique
-                wiki_table = wiki_table.drop_duplicates(['news_id', 'entity', 'title'])
-
-                file_date = ('-').join(file.split('-')[0:3])
-                file_date = datetime.strptime(file_date, '%b-%d-%Y')
-
-                for _, row in wiki_table.iterrows():
-                    news_id, entity, label, title, category, revised, url, wiki, image = row
-                    tm.add_wiki(file_date, news_id, entity, label,
-                                title, category, revised,
-                                url, wiki, image)
-                logger.info(f"data in {file} added to 'wiki' table")
-
-            # load news files using add_news()
             elif 'news-entries' in file:
-                news_table = pd.read_csv(f'{args.local_path}/{file}')
-                news_table = news_table.fillna('')
-                file_date = ('-').join(file.split('-')[0:3])
-                file_date = datetime.strptime(file_date, '%b-%d-%Y')
-
-                for _, row in news_table.iterrows():
-                    news_id, news = row
-                    tm.add_news(file_date, news_id, news)
-                logger.info(f"data in {file} added to 'news' table")
+                add_news_file(file)
 
             tm.close()
 
