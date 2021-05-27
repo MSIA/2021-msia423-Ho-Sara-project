@@ -239,18 +239,7 @@ docker run -it --rm \
 
 ### 2. Configure Flask app 
 
-`config/flaskconfig.py` holds the configurations for the Flask app. It includes the following configurations:
-
-```python
-DEBUG = True  # Keep True for debugging, change to False when moving to production 
-LOGGING_CONFIG = "config/logging/local.conf"  # Path to file that configures Python logger
-HOST = "0.0.0.0" # the host that is running the app. 0.0.0.0 when running locally 
-PORT = 5000  # What port to expose app on. Must be the same as the port exposed in app/Dockerfile 
-SQLALCHEMY_DATABASE_URI = 'sqlite:///data/entries.db'  # URI (engine string) for database that contains tracks
-APP_NAME = "wikinews"
-SQLALCHEMY_TRACK_MODIFICATIONS = True 
-SQLALCHEMY_ECHO = False  # If true, SQL for queries made will be printed
-```
+`config/flaskconfig.py` holds the configurations for the Flask app.
 
 ### 3. Run the Flask app 
 
@@ -275,24 +264,9 @@ You should now be able to access the app at http://0.0.0.0:5000/ in your browser
 To run the app, run from this directory: 
 
 ```bash
-docker run -p 5000:5000 --name test wikinews
+docker run -p 5000:5000 wikinews app.py
 ```
 You should now be able to access the app at http://0.0.0.0:5000/ in your browser.
-
-This command runs the `wikinews` image as a container named `test` and forwards the port 5000 from container to your laptop so that you can access the flask app exposed through that port. 
-
-If `PORT` in `config/flaskconfig.py` is changed, this port should be changed accordingly (as should the `EXPOSE 5000` line in `app/Dockerfile`)
-
-### 3. Kill the container 
-
-Once finished with the app, you will need to kill the container. To do so: 
-
-```bash
-docker kill test 
-```
-
-where `test` is the name given in the `docker run` command.
-
 
 # Testing
 
@@ -302,13 +276,7 @@ From within the Docker container, the following command should work to run unit 
 python -m pytest
 ``` 
 
-Using Docker, run the following, if the image has not been built yet:
-
-```bash
- docker build -f app/Dockerfile_python -t wikinews .
-```
-
-To run the tests, run: 
+To run the tests through Docker, run: 
 
 ```bash
  docker run wikinews -m pytest
