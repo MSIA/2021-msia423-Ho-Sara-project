@@ -17,8 +17,7 @@ Base = declarative_base()
 
 
 class Wiki(Base):
-    """Create a data model for the database to be set up for loading wiki data
-    """
+    """Create a data model for the database to be set up for loading wiki data"""
 
     __tablename__ = 'wiki'
 
@@ -26,29 +25,25 @@ class Wiki(Base):
     date = Column(DateTime)
     news_id = Column(Integer)
     entity = Column(String(100))
-    label = Column(String(100), unique=False, nullable=True)
     title = Column(String(100), unique=False)
-    category = Column(String(100), unique=False, nullable=True)
-    revised = Column(String(100), unique=False, nullable=False)
-    url = Column(String(100), unique=False, nullable=False)
     wiki = Column(String(10000), unique=False, nullable=False)
-    image = Column(String(100), unique=False, nullable=True)
+    wiki_url = Column(String(100), unique=False, nullable=False)
+    wiki_image = Column(String(100), unique=False, nullable=True)
 
     def __repr__(self):
         return '<Wiki title: %r>' % self.title
 
 
 class News(Base):
-    """Create a data model for the database to be set up for loading news data
-    """
+    """Create a data model for the database to be set up for loading news data"""
+
     __tablename__ = 'news'
 
     date = Column(DateTime, primary_key=True)
     news_id = Column(Integer, primary_key=True)
     news = Column(String(10000), unique=False, nullable=False)
-    content = Column(String(100000), unique=False, nullable=False)
-    img = Column(String(100), unique=False, nullable=False)
-    url = Column(String(100), unique=False, nullable=False)
+    news_image = Column(String(100), unique=False, nullable=False)
+    news_url = Column(String(100), unique=False, nullable=False)
 
     def __repr__(self):
         return '<News id %r>' % self.news_id
@@ -100,43 +95,38 @@ class WikiNewsManager:
             raise ValueError("Need either an engine string or a Flask app to initialize")
 
     def close(self) -> None:
-        """Closes session
-
-        Returns: None
-
-        """
+        """Closes session"""
         self.session.close()
 
-    def add_news(self, date: datetime, news_id: int, news: str, content: str, img: str, url: str) -> None:
+    def add_news(self, date: datetime, news_id: int, news: str, img: str, url: str) -> None:
         """Seeds an existing database with additional news.
         Args:
             date: `datetime` of day that the headlines are downloaded
             news_id: `int` index of the headline for the daily news
             news: `str` headline and description the news API
         """
+        
         session = self.session
-        news_record = News(date=date, news_id=news_id,
-                           news=news, content=content,
-                           img=img, url=url)
+        news_record = News(date=datetime.strptime(date, '%b-%d-%Y'),
+                           news_id=news_id,
+                           news=news,
+                           news_image=img,
+                           news_url=url)
         session.add(news_record)
         session.commit()
         logger.debug(f"'{news[0:20]}' added to database with id {str(news_id)}")
 
-    def add_wiki(self, date: datetime, news_id: int, entity: str, label: str, title: str, category: str, revised: str, url: str, wiki: str, image: str) -> None:
-        """Seeds an existing database with additional wiki recommendations.
-        """
+    def add_wiki(self, date: datetime, news_id: int, title: str, wiki: str, url: str, img: str) -> None:
+        """Seeds an existing database with additional wiki recommendations"""
 
         session = self.session
-        wiki_record = Wiki(date=date,
+        wiki_record = Wiki(date=datetime.strptime(date, '%b-%d-%Y'),
                            news_id=news_id,
-                           entity=entity,
-                           label=label,
                            title=title,
-                           category=category,
-                           revised=revised,
-                           url=url,
                            wiki=wiki,
-                           image=image)
+                           wiki_url=url,
+                           wiki_image=img)
+
         session.add(wiki_record)
         session.commit()
         logger.debug(f"'{title}' added to database corresponding to news_id {str(news_id)}")
