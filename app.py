@@ -40,13 +40,14 @@ def index():
     """
 
     try:
+        date = manager.session.query(News.date).distinct().first()[0]
+        date = date.strftime('%b-%d-%Y')
         wiki_entities = manager.session.query(Wiki).all()
         news_entities = manager.session.query(News).all()
 
-
-        print(wiki_entities)
         logger.debug("Index page accessed")
-        return render_template('index.html', 
+        return render_template('index.html',
+            date=date,
             wiki_entities=wiki_entities,
             news_entities=news_entities)
     except:

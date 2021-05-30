@@ -23,16 +23,18 @@
       <h1>WikiNews</h1>
       <p style="color:#9EADA2">About</p>
    </div>
+   <h3 style="text-align: center;">Top headlines {{ date }}</h3>
    <hr />
    <div class="container">
 
       {% for n in news_entities %}
       <div class="row">
          <div class="col-4">
-            <h3 style="color:#363946">{{ n.date }}</h3>
+            <img src="{{ n.news_image }}" style='width:200px'>
             <p>
                {{ n.news }}
             </p>
+            <a href="{{ n.news_url }}" target="_blank">Read More</a>
          </div>
          <div class="col-8">
             <div class="accordian" id="accordian{{ n.news_id }}">
@@ -49,8 +51,8 @@
                   <div id="collapse{{ n.news_id }}{{ w.id }}" class="accordion-collapse collapse"
                      aria-labelledby="head{{ n.news_id }}{{ w.id }}" data-bs-parent="#accordian{{ n.news_id }}">
                      <div class="accordion-body">
-                        <img src="{{ w.image }}" alt="{{ w.title }}">
-                        {{ w.wiki }}
+                        <img src="{{ w.wiki_image }}" alt="{{ w.title }}">
+                        <p>{{ w.wiki }}</p>
                      </div>
                   </div>
                </div>
