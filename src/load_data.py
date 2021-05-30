@@ -49,10 +49,9 @@ def load_news(NEWS_API_KEY, directory='./data'):
         url.append(article['url'])
 
     news_table = pd.DataFrame({'news': news,
-                               'content': content,
-                               'img': img,
-                               'url': url}).reset_index()
-    news_table.columns = ['news_id', 'news', 'content', 'img', 'url']
+                               'news_image': img,
+                               'news_url': url}).reset_index()
+    news_table.columns = ['news_id', 'news', 'news_image', 'news_url']
 
     try:
         news_table.to_csv(f'{directory}/{today}-news-entries.csv', index=False)
@@ -71,20 +70,14 @@ def news2entities(news):
     doc = nlp(news)
 
     entities = []
-    labels = []
     for ent in doc.ents:
         if (ent.label_ in ['PERSON', 'FAC', 'ORG', 'NORP', 'PRODUCT']) and (ent.text not in entities):
-            if ent.label_ == 'PERSON':
-                labels.append('PERSON')
-            elif ent.label_ == 'NORP':
-                labels.append('GROUP')
-            elif ent.label_ == 'ORG':
-                labels.append('ORGANIZATION')
-            else:
-                labels.append('')
-            entities.append(ent.text)
+            text = ent.text
+            if ent.label_ == 'ORG':
+                text += ' (organization)'
+            entities.append(text)
 
-    return entities, labels
+    return entities
 
 
 def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
@@ -98,23 +91,27 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
 
     """
 
+    logger.info('matching news with wiki entries from Wikipedia API')
     today = date.today().strftime("%b-%d-%Y")
     nlp = spacy.load("en_core_web_sm")
-    logger.info('matching news with wiki entries from Wikipedia API')
 
     table_data = []
     for _, row in news_table.iterrows():
-        news_id, news, content, _, _ = row
+        news_id, news, _, _ = row
 
         logger.info("----Processing '%s...'", news[0:25])
 
-        entities, labels = news2entities(news)
-        for ent, label in zip(entities, labels):
+        entities = news2entities(news)
+        titles = []
+        for ent in entities:
             articledata = wiki_query(ent)
             search_results = articledata['query']['search']
 
             for result in search_results[0:n_results]:  # take the top 3
                 title = result['title']
+
+                if title in titles:
+                    pass
 
                 info = wiki_pagecontent(title)
                 try:
@@ -134,13 +131,11 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
 
                     table_data.append({'news_id': news_id,
                                        'entity': ent,
-                                       'label': label,
                                        'title': info['title'],
-                                       'category': categories[0],
-                                       'revised': info['touched'],
-                                       'url': info['fullurl'],
                                        'wiki': info['extract'],
-                                       'image': image})
+                                       'wiki_url': info['fullurl'],
+                                       'wiki_image': image})
+                    titles.append(title)
 
     table = pd.DataFrame(table_data)
     try:
