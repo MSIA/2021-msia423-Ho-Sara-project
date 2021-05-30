@@ -12,6 +12,8 @@ import botocore
 
 from src.load_data import load_wiki, load_news
 from src.add_entries import WikiNewsManager, create_db
+from src.filter_algo import filter_data, join_data
+
 from config.flaskconfig import SQLALCHEMY_DATABASE_URI
 
 NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
@@ -53,35 +55,29 @@ def remove_accents(s):
     return unicodedata.normalize('NFD', s)
 
 
-def add_wiki_file(file):
-    wiki_table = pd.read_csv(f'{args.local_path}/{file}')
-    wiki_table = wiki_table.fillna('')
+def ingest(df):
+    tm = WikiNewsManager(engine_string=args.engine_string)
+    df = df.fillna('')
 
-    wiki_table['title'] = wiki_table['title'].apply(remove_accents)
+    df['title'] = df['title'].apply(remove_accents)
     # when accents are removed, the primary keys may no longer be unique
-    wiki_table = wiki_table.drop_duplicates(['news_id', 'entity', 'title'])
+    df = df.drop_duplicates(['news_id', 'entity', 'title'])
 
-    file_date = ('-').join(file.split('-')[0:3])
-    file_date = datetime.strptime(file_date, '%b-%d-%Y')
+    wiki_df = df[['date', 'news_id', 'title', 'wiki', 'wiki_url', 'wiki_image']].drop_duplicates()
 
-    for _, row in wiki_table.iterrows():
-        news_id, entity, label, title, category, revised, url, wiki, image = row
-        tm.add_wiki(file_date, news_id, entity, label,
-                    title, category, revised,
-                    url, wiki, image)
-    logger.info(f"data in {file} added to 'wiki' table")
+    for _, row in wiki_df.iterrows():
+        date, news_id, title, wiki, url, image = row
+        tm.add_wiki(date, news_id, title, wiki, url, image)
+    logger.info(f"{len(wiki_df)} rows added to 'wiki' table")
 
+    news_df = df[['date', 'news_id', 'news', 'news_image', 'news_url']].drop_duplicates()
 
-def add_news_file(file):
-    news_table = pd.read_csv(f'{args.local_path}/{file}')
-    news_table = news_table.fillna('')
-    file_date = ('-').join(file.split('-')[0:3])
-    file_date = datetime.strptime(file_date, '%b-%d-%Y')
+    for _, row in news_df.iterrows():
+        date, news_id, news, image, url = row
+        tm.add_news(date, news_id, news, image, url)
+    logger.info(f"{len(news_df)} rows  added to 'news' table")
 
-    for _, row in news_table.iterrows():
-        news_id, news, content, img, url = row
-        tm.add_news(file_date, news_id, news, content, img, url)
-    logger.info(f"data in {file} added to 'news' table")
+    tm.close()
 
 
 if __name__ == '__main__':
@@ -119,22 +115,14 @@ if __name__ == '__main__':
         create_db(args.engine_string)
 
     elif sp_used == 'ingest':
-        tm = WikiNewsManager(engine_string=args.engine_string)
-
-        for file in os.listdir(args.local_path):
-
-            if 'wiki-entries' in file:
-                add_wiki_file(file)
-
-            elif 'news-entries' in file:
-                add_news_file(file)
-
-            tm.close()
+        df = join_data('./data/sample')
+        logger.info(df.columns)
+        ingest(df)
 
     elif sp_used == 'load_new':
         # by default, this will save new csv files into ./data
         news = load_news(NEWS_API_KEY)
-        load_wiki(news)
+        load_wiki(news, n_results=1)
 
     elif sp_used == 'load_s3':
         upload_files_to_s3(args.local_path, args.s3path)
