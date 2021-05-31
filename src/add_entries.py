@@ -27,8 +27,8 @@ class Wiki(Base):
     entity = Column(String(100))
     title = Column(String(100), unique=False)
     wiki = Column(String(10000), unique=False, nullable=False)
-    wiki_url = Column(String(100), unique=False, nullable=False)
-    wiki_image = Column(String(100), unique=False, nullable=True)
+    wiki_url = Column(String(1000), unique=False, nullable=False)
+    wiki_image = Column(String(1000), unique=False, nullable=True)
 
     def __repr__(self):
         return '<Wiki title: %r>' % self.title
@@ -42,8 +42,9 @@ class News(Base):
     date = Column(DateTime, primary_key=True)
     news_id = Column(Integer, primary_key=True)
     news = Column(String(10000), unique=False, nullable=False)
-    news_image = Column(String(100), unique=False, nullable=False)
-    news_url = Column(String(100), unique=False, nullable=False)
+    news_dis = Column(String(10000), unique=False, nullable=False)
+    news_image = Column(String(1000), unique=False, nullable=False)
+    news_url = Column(String(1000), unique=False, nullable=False)
 
     def __repr__(self):
         return '<News id %r>' % self.news_id
@@ -98,7 +99,7 @@ class WikiNewsManager:
         """Closes session"""
         self.session.close()
 
-    def add_news(self, date: datetime, news_id: int, news: str, img: str, url: str) -> None:
+    def add_news(self, date: datetime, news_id: int, news: str, news_dis: str,img: str, url: str) -> None:
         """Seeds an existing database with additional news.
         Args:
             date: `datetime` of day that the headlines are downloaded
@@ -110,6 +111,7 @@ class WikiNewsManager:
         news_record = News(date=datetime.strptime(date, '%b-%d-%Y'),
                            news_id=news_id,
                            news=news,
+                           news_dis=news_dis,
                            news_image=img,
                            news_url=url)
         session.add(news_record)
