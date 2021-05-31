@@ -1,7 +1,6 @@
 from datetime import date
 import logging
 import logging.config
-import signal
 
 import spacy
 import pandas as pd
@@ -39,10 +38,12 @@ def load_news(NEWS_API_KEY, directory='./data'):
 
         headline = article['title']
         if article['description'] is not None:
-            headline += article['description']
+            headline += ' ' + article['description']
 
         # remove publication information
         headline = headline.replace(article['source']['name'], ' ')
+        source_words = ['USA TODAY', 'POLITICO', 'TheHill']
+
         news.append(headline)
         content.append(article['content'])
         img.append(article['urlToImage'])
@@ -107,9 +108,9 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
             articledata = wiki_query(ent)
             search_results = articledata['query']['search']
 
-            for result in search_results[0:n_results]:  # take the top 3
+            # n_results is how many search results to consider matching
+            for result in search_results[0:n_results]:
                 title = result['title']
-
                 if title in titles:
                     pass
 
@@ -117,25 +118,23 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
                 try:
                     categories = info['categories']
                     categories = [kv['title'] for kv in categories if 'births' not in kv['title']]
+                    if 'Category:Disambiguation pages' in categories:
+                        pass
                 except KeyError:
                     pass
 
-                if 'Category:Disambiguation pages' in categories:
-                    pass
+                if 'thumbnail' in info:
+                    image = info['thumbnail']['source']
                 else:
+                    image = ''
 
-                    if 'thumbnail' in info:
-                        image = info['thumbnail']['source']
-                    else:
-                        image = ''
-
-                    table_data.append({'news_id': news_id,
-                                       'entity': ent,
-                                       'title': info['title'],
-                                       'wiki': info['extract'],
-                                       'wiki_url': info['fullurl'],
-                                       'wiki_image': image})
-                    titles.append(title)
+                table_data.append({'news_id': news_id,
+                                   'entity': ent,
+                                   'title': info['title'],
+                                   'wiki': info['extract'],
+                                   'wiki_url': info['fullurl'],
+                                   'wiki_image': image})
+                titles.append(title)
 
     table = pd.DataFrame(table_data)
     try:
