@@ -17,8 +17,6 @@ app = Flask(__name__,
 # Configure flask app from flask_config.py
 app.config.from_pyfile('config/flaskconfig.py')
 
-# Define LOGGING_CONFIG in flask_config.py - path to config file for setting
-# up the logger (e.g. config/logging/local.conf)
 logging.config.fileConfig(app.config["LOGGING_CONFIG"])
 logger = logging.getLogger(app.config["APP_NAME"])
 db = 'sqlite:///data/entries.db'
@@ -47,9 +45,9 @@ def index():
 
         logger.debug("Index page accessed")
         return render_template('index.html',
-            date=date,
-            wiki_entities=wiki_entities,
-            news_entities=news_entities)
+                               date=date,
+                               wiki_entities=wiki_entities,
+                               news_entities=news_entities)
     except:
         traceback.print_exc()
         logger.warning("Not able to display wikinews, error page returned")
