@@ -9,6 +9,8 @@ import logging.config
 import pandas as pd
 import boto3
 import botocore
+import spacy
+from spacy import displacy
 
 from src.load_data import load_wiki, load_news
 from src.add_entries import WikiNewsManager, create_db
@@ -55,6 +57,24 @@ def remove_accents(s):
     return unicodedata.normalize('NFD', s)
 
 
+def render_text(text, entities):
+    entity_locs = []
+    for ent in entities:
+        if '(organization)' in ent:
+            ent = ent.replace(' (organization)', '')
+        start = text.find(ent)
+        end = start + len(ent)
+        entity_locs.append({'start': start, 'end': end, 'label': ''})
+
+    colors = {"": "linear-gradient(90deg, #a2dff0, #b1d3ae)"}
+    options = {"ents": [""], "colors": colors}
+
+    doc = [{"text": text,
+            "ents": entity_locs,
+            "title": None}]
+    return displacy.render(doc, style="ent", jupyter=False, manual=True, options=options)
+
+
 def ingest(df):
     tm = WikiNewsManager(engine_string=args.engine_string)
     df = df.fillna('')
@@ -74,7 +94,9 @@ def ingest(df):
 
     for _, row in news_df.iterrows():
         date, news_id, news, image, url = row
-        tm.add_news(date, news_id, news, image, url)
+        entities = df.loc[df['news_id'] == news_id, 'entity'].values
+        news_dis = render_text(news, entities)
+        tm.add_news(date, news_id, news, news_dis, image, url)
     logger.info(f"{len(news_df)} rows  added to 'news' table")
 
     tm.close()
