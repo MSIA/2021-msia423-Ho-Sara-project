@@ -8,8 +8,9 @@ __pycache__/
 .ipynb_checkpoints/
 config.py
 
-data/*
+data/*.csv
+data/*.db
 !data/sample/
-!data/daily/
+data/daily/*.csv
 config/local
-!.gitkeep
+*!.gitkeep
