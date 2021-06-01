@@ -54,13 +54,6 @@ def load_news(NEWS_API_KEY, directory='./data'):
                                'news_url': url}).reset_index()
     news_table.columns = ['news_id', 'news', 'news_image', 'news_url']
 
-    try:
-        news_table.to_csv(f'{directory}/{today}-news-entries.csv', index=False)
-        logger.info("----Saved %i headlines to csv", len(news_table))
-    except FileNotFoundError as e:
-        logger.warning('----Error in saving csv locally; Still returning DataFrame obj')
-        logger.warning(e)
-
     return news_table
 
 
@@ -81,7 +74,7 @@ def news2entities(news):
     return entities
 
 
-def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
+def load_wiki(input_file, directory='./data', n_results=3, timeout=300):
     """Match news with wikipedia articles
 
     Args:
@@ -95,6 +88,8 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
     logger.info('matching news with wiki entries from Wikipedia API')
     today = date.today().strftime("%b-%d-%Y")
     nlp = spacy.load("en_core_web_sm")
+
+    news_table = pd.read_csv(input_file)
 
     table_data = []
     for _, row in news_table.iterrows():
@@ -137,11 +132,5 @@ def load_wiki(news_table, directory='./data', n_results=3, timeout=300):
                 titles.append(title)
 
     table = pd.DataFrame(table_data)
-    try:
-        table.to_csv(f'{directory}/{today}-wiki-entries.csv', index=False)
-        logger.info("----Saved %i wiki entries to csv", len(table))
-    except FileNotFoundError as e:
-        logger.warning('----Error in saving csv locally; still returning DataFrame obj')
-        logger.warning(e)
 
     return table
