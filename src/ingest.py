@@ -6,7 +6,7 @@ import logging.config
 import pandas as pd
 from spacy import displacy
 
-from src.add_entries import WikiNewsManager, create_db
+from src.db import WikiNewsManager, create_db
 
 logging.config.fileConfig("config/logging/local.conf",
                           disable_existing_loggers=False)
@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def remove_accents(s):
+    """ remove accents which certain databases may not be able to handle """
     return unicodedata.normalize('NFD', s)
 
 
 def render_text(text, entities):
+    """ custom spacy-style rendering of text with highlighted terms """
     entity_locs = []
     for ent in entities:
         if ' (organization)' in ent:
@@ -52,8 +54,10 @@ def ingest_news(news_df, df, engine_string):
     tm = WikiNewsManager(engine_string=engine_string)
     for _, row in news_df.iterrows():
         date, news_id, news, image, url = row
-        entities = df.loc[df['news_id'] == news_id, 'entity'].values
+
+        entities = df.loc[df['news_id'] == news_id, 'entity'].drop_duplicates().values
         news_dis = render_text(news, entities)
+
         tm.add_news(date, news_id, news, news_dis, image, url)
     logger.info(f"{len(news_df)} rows  added to 'news' table")
     tm.close()
