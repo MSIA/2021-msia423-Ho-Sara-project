@@ -1,31 +1,28 @@
-daily_update: build load_new load_s3 create_aws launch_app
 
-build:
-	docker build -f app/Dockerfile -t wikinews .
+make NEWS_API_KEY="${NEWS_API_KEY}" target
 
-load_new:
-	docker run \
-		-e NEWS_API_KEY \
-		-e AWS_ACCESS_KEY_ID \
-		-e AWS_SECRET_ACCESS_KEY \
-		-e PYTHONIOENCODING=utf-8 \
-		wikinews run.py load_new --local_path ./data/daily
+remove_old:
+	rm -rf data/daily/*.csv
 
-load_s3:
-	docker run \
-		-e NEWS_API_KEY \
-		-e AWS_ACCESS_KEY_ID \
-		-e AWS_SECRET_ACCESS_KEY \
-		-e PYTHONIOENCODING=utf-8 \
-		wikinews run.py load_s3 --local_path ./data/daily
+data/daily/news-entries.csv: config/config.yaml
+	python3 run.py load_news --config=config/config.yaml --output=data/daily/news-entries.csv
 
-# create_aws:
-# 	docker run \
-# 		-e AWS_ACCESS_KEY_ID \
-# 		-e AWS_SECRET_ACCESS_KEY \
-# 		wikinews run.py create_db \
-# 		--engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
+load_news: data/daily/news-entries.csv
 
-launch_app:
-	docker run \
-		-p 5000:5000 wikinews app.py
+data/daily/wiki-entries.csv: data/daily/news-entries.csv
+	python3 run.py load_wiki --input=data/daily/news-entries.csv --output=data/daily/wiki-entries.csv
+
+load_wiki: data/daily/wiki-entries.csv
+
+data/filtered.csv:
+	python3 run.py filter --output=data/filtered.csv
+
+filter: data/filtered.csv
+
+create_db:
+	python3 run.py create_db
+
+ingest: data/filtered.csv
+	python3 run.py ingest --input=data/filtered.csv
+
+daily_update: remove_old load_news load_wiki filter create_db ingest
