@@ -1,5 +1,6 @@
 
 make NEWS_API_KEY="${NEWS_API_KEY}" target
+DAILY_DIR=data/daily
 
 remove_old:
 	rm -rf data/daily/*.csv
@@ -14,6 +15,11 @@ data/daily/wiki-entries.csv: data/daily/news-entries.csv
 
 load_wiki: data/daily/wiki-entries.csv
 
+data/joined.csv: ${DAILY_DIR}/news-entries.csv ${DAILY_DIR}/wiki-entries.csv
+	python3 run.py join --input1=${DAILY_DIR}/news-entries.csv --input2=${DAILY_DIR}/wiki-entries.csv --output=data/joined.csv
+
+join: data/joined.csv
+
 data/filtered.csv:
 	python3 run.py filter --output=data/filtered.csv
 
@@ -22,7 +28,8 @@ filter: data/filtered.csv
 create_db:
 	python3 run.py create_db
 
-ingest: data/filtered.csv
-	python3 run.py ingest --input=data/filtered.csv
+ingest: data/joined.csv
+	python3 run.py ingest --input=data/joined.csv
 
-daily_update: remove_old load_news load_wiki filter create_db ingest
+update: remove_old load_news load_wiki 
+launch: join filter create_db ingest
