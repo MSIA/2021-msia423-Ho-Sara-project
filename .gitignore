@@ -10,6 +10,6 @@ config.py
 
 data/*
 !data/sample/
-!data/external/
+!data/daily/
 config/local
 !.gitkeep
