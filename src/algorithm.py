@@ -22,6 +22,14 @@ def sim_sm(x):
 
 
 def remove_stopwords(df):
+    """[summary]
+
+    Args:
+        df ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     stop_words = stopwords.words('english')
     stop_words.extend(['from', 'subject', 're', 'edu', 'use'])
 
@@ -30,26 +38,32 @@ def remove_stopwords(df):
     return df
 
 
-def join_data(datadir):
+def join_data(news_path, wiki_path):
+    """[summary]
 
+    Args:
+        datadir ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     wikidf = []
     newsdf = []
 
-    for file in os.listdir(datadir):
-        if 'wiki' in file:
-            df = pd.read_csv(datadir + '/' + file)
+    # if 'wiki' in file:
+    df = pd.read_csv(wiki_path)
 
-            # remove duplicates
-            df.drop_duplicates(['title', 'news_id'])
+    # remove duplicates
+    df.drop_duplicates(['title', 'news_id'])
 
-            # create index / primary key
-            df = df.reset_index()
-            df.rename(columns={'index': 'wiki_id'}, inplace=True)
-            wikidf.append(df)
+    # create index / primary key
+    df = df.reset_index()
+    df.rename(columns={'index': 'wiki_id'}, inplace=True)
+    wikidf.append(df)
 
-        elif 'news' in file:
-            df = pd.read_csv(datadir + '/' + file)
-            newsdf.append(df)
+    # elif 'news' in file:
+    df = pd.read_csv(news_path)
+    newsdf.append(df)
 
     joined = pd.concat(wikidf).merge(pd.concat(newsdf), on=['news_id'])
     joined['date'] = date.today().strftime("%b-%d-%Y")
@@ -57,9 +71,16 @@ def join_data(datadir):
     return joined
 
 
-def filter_data(datadir):
+def filter_data(join_path):
+    """[summary]
 
-    df = join_data(datadir)
+    Args:
+        datadir ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    df = pd.read_csv(join_path)
 
     df = df.dropna()
     df = remove_stopwords(df)
