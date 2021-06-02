@@ -33,29 +33,35 @@ def load_news(NEWS_API_KEY, directory='./data'):
     except Exception as e:
         logger.error(f'Error {e} when retrieving headlines')
 
+    headline = []
     news = []
-    content = []
     img = []
     url = []
     for article in data['articles']:
 
-        headline = article['title']
-        if article['description'] is not None:
-            headline += ' ' + article['description']
-
-        # remove publication information
-        headline = headline.replace(article['source']['name'], ' ')
-        source_words = ['USA TODAY', 'POLITICO', 'TheHill']
-
-        news.append(headline)
-        content.append(article['content'])
+        headline.append(article['title'])
         img.append(article['urlToImage'])
         url.append(article['url'])
 
-    news_table = pd.DataFrame({'news': news,
+        full = article['title']
+
+        if article['description'] is not None:
+            full += ' ' + article['description']
+
+        # remove publication information
+        full = full.replace(article['source']['name'], ' ')
+        source_words = ['USA TODAY', 'POLITICO', 'TheHill', 'Fox News',
+                        'Yahoo Sports', 'Reuters']
+        for word in source_words:
+            full = full.replace(word, '')
+
+        news.append(full)
+
+    news_table = pd.DataFrame({'headline': headline,
+                               'news': news,
                                'news_image': img,
                                'news_url': url}).reset_index()
-    news_table.columns = ['news_id', 'news', 'news_image', 'news_url']
+    news_table.columns = ['news_id', 'headline', 'news', 'news_image', 'news_url']
 
     return news_table
 
@@ -96,7 +102,7 @@ def load_wiki(input_file, directory='./data', n_results=3, timeout=300):
 
     table_data = []
     for _, row in news_table.iterrows():
-        news_id, news, _, _ = row
+        news_id, _, news, _, _ = row
 
         logger.info("----Processing '%s...'", news[0:25])
 
@@ -115,8 +121,8 @@ def load_wiki(input_file, directory='./data', n_results=3, timeout=300):
                 info = wiki_pagecontent(title)
                 try:
                     categories = info['categories']
-                    categories = [kv['title'] for kv in categories if 'births' not in kv['title']]
-                    if 'Category:Disambiguation pages' in categories:
+                    categories = ' '.join([kv['title'] for kv in categories]).lower()
+                    if 'disambiguation pages' in categories:
                         pass
                 except KeyError:
                     pass
@@ -126,10 +132,18 @@ def load_wiki(input_file, directory='./data', n_results=3, timeout=300):
                 else:
                     image = ''
 
+                wiki = info['extract']
+                if 'may refer to:' in wiki:
+                    pass
+
+                if '==' in wiki:
+                    end = wiki.find('==')
+                    wiki = wiki[0:end]
+
                 table_data.append({'news_id': news_id,
                                    'entity': ent,
                                    'title': info['title'],
-                                   'wiki': info['extract'],
+                                   'wiki': wiki,
                                    'wiki_url': info['fullurl'],
                                    'wiki_image': image})
                 titles.append(title)
