@@ -41,6 +41,7 @@ class News(Base):
 
     date = Column(DateTime, primary_key=True)
     news_id = Column(Integer, primary_key=True)
+    headline = Column(String(1000), unique=False, nullable=False)
     news = Column(String(10000), unique=False, nullable=False)
     news_dis = Column(String(10000), unique=False, nullable=False)
     news_image = Column(String(1000), unique=False, nullable=False)
@@ -89,7 +90,7 @@ class WikiNewsManager:
             self.db = SQLAlchemy(app)
             self.session = self.db.session
         if engine_string:
-            engine = sqlalchemy.create_engine(engine_string)
+            engine = sqlalchemy.create_engine(engine_string, connect_args={'check_same_thread': False})
             Session = sessionmaker(bind=engine)
             self.session = Session()
         else:
@@ -99,7 +100,7 @@ class WikiNewsManager:
         """Closes session"""
         self.session.close()
 
-    def add_news(self, date: datetime, news_id: int, news: str, news_dis: str,img: str, url: str) -> None:
+    def add_news(self, date: datetime, news_id: int, headline: str, news: str, news_dis: str,img: str, url: str) -> None:
         """Seeds an existing database with additional news.
         Args:
             date: `datetime` of day that the headlines are downloaded
@@ -110,6 +111,7 @@ class WikiNewsManager:
         session = self.session
         news_record = News(date=datetime.strptime(date, '%b-%d-%Y'),
                            news_id=news_id,
+                           headline=headline,
                            news=news,
                            news_dis=news_dis,
                            news_image=img,

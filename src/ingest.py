@@ -19,22 +19,13 @@ def remove_accents(s):
 
 
 def render_text(text, entities):
-    """ custom spacy-style rendering of text with highlighted terms """
+    """ custom rendering of text with highlighted terms """
     entity_locs = []
     for ent in entities:
         if ' (organization)' in ent:
             ent = ent.replace(' (organization)', '')
-        start = text.find(ent)
-        end = start + len(ent)
-        entity_locs.append({'start': start, 'end': end, 'label': ''})
-
-    colors = {"": "linear-gradient(90deg, #a2dff0, #b1d3ae)"}
-    options = {"ents": [""], "colors": colors}
-
-    doc = [{"text": text,
-            "ents": entity_locs,
-            "title": None}]
-    return displacy.render(doc, style="ent", jupyter=False, manual=True, options=options)
+        text = text.replace(ent, f'<span class="highlight">{ent}</span>')
+    return text
 
 
 def ingest_wiki(wiki_df, engine_string):
@@ -53,12 +44,12 @@ def ingest_news(news_df, df, engine_string):
 
     tm = WikiNewsManager(engine_string=engine_string)
     for _, row in news_df.iterrows():
-        date, news_id, news, image, url = row
+        date, news_id, headline, news, image, url = row
 
         entities = df.loc[df['news_id'] == news_id, 'entity'].drop_duplicates().values
         news_dis = render_text(news, entities)
 
-        tm.add_news(date, news_id, news, news_dis, image, url)
+        tm.add_news(date, news_id, headline, news, news_dis, image, url)
     logger.info(f"{len(news_df)} rows  added to 'news' table")
     tm.close()
 
@@ -79,5 +70,5 @@ def ingest(file_path, engine_string):
     wiki_df = df[['date', 'news_id', 'title', 'wiki', 'wiki_url', 'wiki_image']].drop_duplicates()
     ingest_wiki(wiki_df, engine_string)
 
-    news_df = df[['date', 'news_id', 'news', 'news_image', 'news_url']].drop_duplicates()
+    news_df = df[['date', 'news_id', 'headline', 'news', 'news_image', 'news_url']].drop_duplicates()
     ingest_news(news_df, df, engine_string)
