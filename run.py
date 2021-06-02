@@ -1,8 +1,5 @@
 import os
 import argparse
-from datetime import datetime
-from datetime import date
-import unicodedata
 import logging
 import logging.config
 import yaml
@@ -11,11 +8,10 @@ import pandas as pd
 import boto3
 import botocore
 import spacy
-from spacy import displacy
 
-from src.load_data import load_wiki, load_news
+from src.load import load_wiki, load_news
 from src.ingest import *
-from src.filter_algo import filter_data, join_data
+from src.algorithm import filter_data, join_data
 
 from config.flaskconfig import SQLALCHEMY_DATABASE_URI
 
@@ -57,10 +53,20 @@ def upload_files_to_s3(local_path, s3path):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Create and/or add data to database")
-    parser.add_argument('step', help='Which step to run', choices=['load_news', 'load_wiki', 'filter', 'create_db', 'ingest'])
-    parser.add_argument('--input', '-i', default=None, help='Path to input data')
+    parser.add_argument('step', 
+                        help='Which step to run', 
+                        choices=['load_news', 'load_wiki', 'filter', 'create_db', 'join', 'ingest'])
+
+    parser.add_argument('--input', '-i', default=None, 
+                        help='Path to input data')
+    parser.add_argument('--input1', default=None, 
+                        help='Path to input data')
+    parser.add_argument('--input2', default=None, 
+                        help='Path to input data')
+
     parser.add_argument('--config', help='Path to configuration file')
-    parser.add_argument('--output', '-o', default=None, help='Path to save output CSV (optional, default = None)')
+    parser.add_argument('--output', '-o', default=None,
+                        help='Path to save output CSV (optional, default = None)')
     parser.add_argument("--engine_string", default='sqlite:///data/entries.db',
                         help="SQLAlchemy connection URI for database")
 
@@ -79,13 +85,13 @@ if __name__ == '__main__':
         output = load_news(NEWS_API_KEY)
 
     elif args.step == 'load_wiki':
-        output = load_wiki(args.input)
-
-    elif args.step == 'filter':
-        output = filter_data('data/daily')
+        output = load_wiki(args.input, n_results=1)
 
     elif args.step == 'create_db':
         create_db(args.engine_string)
+
+    elif args.step == 'join':
+        output = join_data(args.input1, args.input2)
 
     elif args.step == 'ingest':
         ingest(args.input, args.engine_string)
