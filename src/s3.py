@@ -1,4 +1,5 @@
 import os
+import logging
 
 import boto3
 import botocore
@@ -12,8 +13,10 @@ logging.getLogger("asyncio").setLevel(logging.ERROR)
 logging.getLogger("aiobotocore").setLevel(logging.ERROR)
 logging.getLogger("s3fs").setLevel(logging.ERROR)
 
+logger = logging.getLogger(__name__)
 
-def upload_files_to_s3(local_path, s3path):
+
+def upload(local_path, s3path):
     """ Upload local files to s3 """
 
     s3bucket = s3path.replace('s3://', '')
@@ -27,6 +30,16 @@ def upload_files_to_s3(local_path, s3path):
         try:
             bucket.upload_file(f'{local_path}/{file}', f'raw/{file}')
         except botocore.exceptions.NoCredentialsError:
-            logger.error('Please provide AWS credentials via AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env variables.')
+            logger.error('Please provide credentials via AWS_ACCESS_KEY_ID ',
+                         'and AWS_SECRET_ACCESS_KEY env variables')
         else:
             logger.info('Data uploaded to %s', {s3path} + '/raw/' + {file})
+
+
+def s3_static():
+    upload('data/labeled', s3path)
+    upload('data/sample', s3path)
+
+
+def s3_dynamic():
+    upload(, s3path)
