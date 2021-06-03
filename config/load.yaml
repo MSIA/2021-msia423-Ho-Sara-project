@@ -1,0 +1,53 @@
+
+load:
+  author: Sara Ho
+  version: AA1
+  description: loads data from news and wiki apis and match
+  wiki_source: https://www.mediawiki.org/wiki/API:Main_page
+  news_source: https://newsapi.org/
+
+timeout: 300
+load_wiki:
+  n_results: 1
+wiki_url: https://en.wikipedia.org/w/api.php
+wiki_pagecontent:
+  action: query
+  format: json
+  titles: title
+  prop: extracts|pageimages|info|categories
+  inprop: url
+  exsentences: 10
+  explaintext: 1
+  pithumbsize: 100
+wiki_query:
+  action: query
+  format: json
+  list: search
+  srsearch: query
+
+news_url: https://newsapi.org/v2/top-headlines?
+news_top:
+  country: us
+  pagesize: 100
+
+source_words:
+  - USA TODAY
+  - POLITICO
+  - TheHill
+  - Fox News
+  - Yahoo Sports
+  - Reuters
+stop_categories:
+  - disambiguation
+  - given name
+  - surnames
+stop_phrases:
+  - may refer to
+  - can refer to
+spacy_model: en_core_web_sm
+stop_spacy:
+  - PERSON
+  - FAC
+  - ORG
+  - NORP
+  - PRODUCT
