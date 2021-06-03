@@ -8,16 +8,13 @@ from sqlalchemy import Column, Integer, String, DateTime, MetaData
 from sqlalchemy.orm import sessionmaker
 from flask_sqlalchemy import SQLAlchemy
 
-logging.config.fileConfig("config/logging/local.conf",
-                          disable_existing_loggers=False)
-logger = logging.getLogger('__name__')
-logger.setLevel("DEBUG")
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
 
 class Wiki(Base):
-    """Create a data model for the database to be set up for loading wiki data"""
+    """Create schema for wiki data"""
 
     __tablename__ = 'wiki'
 
@@ -35,7 +32,7 @@ class Wiki(Base):
 
 
 class News(Base):
-    """Create a data model for the database to be set up for loading news data"""
+    """Create schema for news data"""
 
     __tablename__ = 'news'
 
@@ -90,24 +87,27 @@ class WikiNewsManager:
             self.db = SQLAlchemy(app)
             self.session = self.db.session
         if engine_string:
-            engine = sqlalchemy.create_engine(engine_string, connect_args={'check_same_thread': False})
+            engine = sqlalchemy.create_engine(engine_string)
             Session = sessionmaker(bind=engine)
             self.session = Session()
         else:
-            raise ValueError("Need either an engine string or a Flask app to initialize")
+            raise ValueError("Need either an engine string",
+                             "or a Flask app to initialize")
 
     def close(self) -> None:
         """Closes session"""
         self.session.close()
 
-    def add_news(self, date: datetime, news_id: int, headline: str, news: str, news_dis: str,img: str, url: str) -> None:
+    def add_news(self, date: datetime,
+                 news_id: int, headline: str, news: str, news_dis: str,
+                 img: str, url: str) -> None:
         """Seeds an existing database with additional news.
         Args:
             date: `datetime` of day that the headlines are downloaded
             news_id: `int` index of the headline for the daily news
             news: `str` headline and description the news API
         """
-        
+
         session = self.session
         news_record = News(date=datetime.strptime(date, '%b-%d-%Y'),
                            news_id=news_id,
@@ -118,9 +118,10 @@ class WikiNewsManager:
                            news_url=url)
         session.add(news_record)
         session.commit()
-        logger.debug(f"'{news[0:20]}' added to database with id {str(news_id)}")
+        logger.debug(f"'{news[0:20]}' added to db with id {str(news_id)}")
 
-    def add_wiki(self, date: datetime, news_id: int, title: str, wiki: str, url: str, img: str) -> None:
+    def add_wiki(self, date: datetime, news_id: int, title: str,
+                 wiki: str, url: str, img: str) -> None:
         """Seeds an existing database with additional wiki recommendations"""
 
         session = self.session
@@ -133,4 +134,5 @@ class WikiNewsManager:
 
         session.add(wiki_record)
         session.commit()
-        logger.debug(f"'{title}' added to database corresponding to news_id {str(news_id)}")
+        logger.debug(f"'{title}' added to database corresponding ",
+                     "to news_id {str(news_id)}")
