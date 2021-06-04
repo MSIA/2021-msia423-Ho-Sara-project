@@ -15,10 +15,5 @@ COPY . /app/
 RUN dos2unix app/boot.sh && apt-get --purge remove -y dos2unix
 RUN chmod +x app/boot.sh
 
-ENV LC_ALL=en_CA.UTF-8
-ENV LANG=en_CA.UTF-8
-ENV LANGUAGE=en_CA.UTF-8
-
 EXPOSE 5000
-
-ENTRYPOINT ["make"]
+CMD ["./app/boot.sh"]
