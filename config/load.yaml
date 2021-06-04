@@ -7,13 +7,13 @@ load:
   news_source: https://newsapi.org/
 
 timeout: 300
+
+wiki_url: https://en.wikipedia.org/w/api.php
 load_wiki:
   n_results: 1
-wiki_url: https://en.wikipedia.org/w/api.php
 wiki_pagecontent:
   action: query
   format: json
-  titles: title
   prop: extracts|pageimages|info|categories
   inprop: url
   exsentences: 10
@@ -23,7 +23,6 @@ wiki_query:
   action: query
   format: json
   list: search
-  srsearch: query
 
 news_url: https://newsapi.org/v2/top-headlines?
 news_top:

@@ -1,5 +1,5 @@
 
-load:
+algorithm:
   author: Sara Ho
   version: AA1
   description: runs a similarity score-based filtering algorithm
