@@ -7,11 +7,12 @@ from flask import render_template, request, redirect, url_for
 from config.flaskconfig import *
 
 # Initialize the database session
-from src.add_entries import Wiki, News, WikiNewsManager
+from src.db import Wiki, News, WikiNewsManager
+from config.flaskconfig import SQLALCHEMY_DATABASE_URI
 
 # Initialize the Flask application
-app = Flask(__name__, 
-            template_folder="app/templates", 
+app = Flask(__name__,
+            template_folder="app/templates",
             static_folder="app/static")
 
 # Configure flask app from flask_config.py
@@ -19,11 +20,8 @@ app.config.from_pyfile('config/flaskconfig.py')
 
 logging.config.fileConfig(app.config["LOGGING_CONFIG"])
 logger = logging.getLogger(app.config["APP_NAME"])
-db = 'sqlite:///data/entries.db'
-# db = f'{DB_DIALECT}://{DB_USER}:{DB_PW}@{DB_HOST}:{DB_PORT}/{DATABASE}'
-logger.debug('Web app log')
 
-manager = WikiNewsManager(engine_string=db)
+manager = WikiNewsManager(engine_string=SQLALCHEMY_DATABASE_URI)
 
 @app.route('/')
 def index():
@@ -34,7 +32,6 @@ def index():
     inserts it into the ./templates/index.html template.
 
     Returns: rendered html template
-
     """
 
     try:
