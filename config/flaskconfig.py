@@ -1,4 +1,8 @@
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+
 DEBUG = True
 LOGGING_CONFIG = "config/logging/local.conf"
 PORT = 5000
@@ -9,16 +13,11 @@ SQLALCHEMY_ECHO = False  # If true, SQL for queries made will be printed
 MAX_ROWS_SHOW = 100
 
 # Connection string
-DB_HOST = os.environ.get('MYSQL_HOST')
-DB_PORT = os.environ.get('MYSQL_PORT')
-DB_USER = os.environ.get('MYSQL_USER')
-DB_PW = os.environ.get('MYSQL_PASSWORD')
-DATABASE = os.environ.get('DATABASE_NAME')
-DB_DIALECT = 'mysql+pymysql'
-SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
-if SQLALCHEMY_DATABASE_URI is not None:
-    pass
-elif DB_HOST is None:
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///data/entries.db'
+AWS_ENGINE_STRING = os.environ.get('AWS_ENGINE_STRING')
+DOCKER_CONTAINER = os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False)
+if DOCKER_CONTAINER or (AWS_ENGINE_STRING is not None):
+    logger.info(f'connecting to `AWS_ENGINE_STRING`')
+    SQLALCHEMY_DATABASE_URI = AWS_ENGINE_STRING
 else:
-    SQLALCHEMY_DATABASE_URI = f'{DB_DIALECT}://{DB_USER}:{DB_PW}@{DB_HOST}:{DB_PORT}/{DATABASE}'
+    logger.info(f'connecting to local entries.db')
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///data/entries.db'
