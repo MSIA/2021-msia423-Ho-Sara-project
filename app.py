@@ -46,6 +46,9 @@ def index():
                                wiki_entities=wiki_entities,
                                news_entities=news_entities)
     except:
+        logger.debug("session.rollback() invoked")
+        manager.session.rollback()
+
         traceback.print_exc()
         logger.warning("Not able to display wikinews, error page returned")
         return render_template('error.html')
