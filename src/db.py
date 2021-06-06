@@ -51,9 +51,73 @@ class News(Base):
         return '<News id %r>' % self.news_id
 
 
-def delete_ifexists(engine_string, table_name):
-    """Delete rows from a table via engine_string
-    to make way for ingesting new data
+class WikiNewsManager:
+
+    def __init__(self, app=None, engine_string=None):
+        """
+        Args:
+            app (obj): flask app
+            engine_string (str): engine string referring to database
+        """
+        if app:
+            logger.info('using WikiNewsManager for app')
+            self.db = SQLAlchemy(app)
+            self.session = self.db.session
+        elif engine_string:
+            logger.info('using WikiNewsManager for db')
+            engine = sqlalchemy.create_engine(engine_string)
+            Session = sessionmaker(bind=engine)
+            self.session = Session()
+        else:
+            raise ValueError("Need either an engine string",
+                             "or a Flask app to initialize")
+
+    def close(self) -> None:
+        """Closes session"""
+        self.session.close()
+
+    def add_news(self, date: datetime,
+                 news_id: int, headline: str, news: str, news_dis: str,
+                 img: str, url: str) -> None:
+        """Seeds an existing database with news"""
+
+        session = self.session
+        news_record = News(date=datetime.strptime(date, '%b-%d-%Y'),
+                           news_id=news_id,
+                           headline=headline,
+                           news=news,
+                           news_dis=news_dis,
+                           news_image=img,
+                           news_url=url)
+        session.add(news_record)
+        session.commit()
+        logger.debug(f"'%s' added to db with id %i",
+                     (news[0:20], news_id))
+
+    def add_wiki(self, date: datetime, news_id: int, title: str,
+                 wiki: str, url: str, img: str) -> None:
+        """Seeds an existing database with wiki recommendations"""
+
+        session = self.session
+        wiki_record = Wiki(date=datetime.strptime(date, '%b-%d-%Y'),
+                           news_id=news_id,
+                           title=title,
+                           wiki=wiki,
+                           wiki_url=url,
+                           wiki_image=img)
+
+        session.add(wiki_record)
+        session.commit()
+        logger.debug(f"'%s' added to db ~ for news_id %i",
+                     (title, news_id))
+
+
+def delete_ifexists(engine_string, table_name) -> None:
+    """Deletes rows in table to make way for new daily data
+
+    Args:
+        engine_string (str): engine string referring to database
+        table_name (str): name of table in database
     """
     engine = sqlalchemy.create_engine(engine_string)
 
@@ -66,13 +130,13 @@ def delete_ifexists(engine_string, table_name):
     inspector = sqlalchemy.inspect(engine)
     if table_name in inspector.get_table_names():
         try:
-            logger.debug(f'Try deleting rows from {table_name} table')
+            logger.debug('Try deleting rows from table %s', {table_name})
             table = Table(table_name, metadata, autoload_with=engine)
             session.query(table).delete(synchronize_session=False)
             session.commit()
-            logger.debug(f'Successfully rows from {table_name} table')
+            logger.debug('Successfully rows from  table %s', {table_name})
         except:
-            logger.warning(f'Could not delete rows from {table_name}')
+            logger.warning('Could not delete rows from %s', {table_name})
             traceback.print_exc()
             session.rollback()
 
@@ -95,77 +159,16 @@ def create_db(engine_string: str) -> None:
     logger.info("Database created.")
 
 
-class WikiNewsManager:
-
-    def __init__(self, app=None, engine_string=None):
-        """
-        Args:
-            app: Flask - Flask app
-            engine_string: str - Engine string
-        """
-        if app:
-            logger.info('using WikiNewsManager for app')
-            self.db = SQLAlchemy(app)
-            self.session = self.db.session
-        elif engine_string:
-            logger.info('using WikiNewsManager for db')
-            engine = sqlalchemy.create_engine(engine_string)
-            Session = sessionmaker(bind=engine)
-            self.session = Session()
-        else:
-            raise ValueError("Need either an engine string",
-                             "or a Flask app to initialize")
-
-    def close(self) -> None:
-        """Closes session"""
-        self.session.close()
-
-    def add_news(self, date: datetime,
-                 news_id: int, headline: str, news: str, news_dis: str,
-                 img: str, url: str) -> None:
-        """Seeds an existing database with additional news.
-        Args:
-            date: `datetime` of day that the headlines are downloaded
-            news_id: `int` index of the headline for the daily news
-            news: `str` headline and description the news API
-        """
-
-        session = self.session
-        news_record = News(date=datetime.strptime(date, '%b-%d-%Y'),
-                           news_id=news_id,
-                           headline=headline,
-                           news=news,
-                           news_dis=news_dis,
-                           news_image=img,
-                           news_url=url)
-        session.add(news_record)
-        session.commit()
-        logger.debug(f"'{news[0:20]}' added to db with id {str(news_id)}")
-
-    def add_wiki(self, date: datetime, news_id: int, title: str,
-                 wiki: str, url: str, img: str) -> None:
-        """Seeds an existing database with additional wiki recommendations"""
-
-        session = self.session
-        wiki_record = Wiki(date=datetime.strptime(date, '%b-%d-%Y'),
-                           news_id=news_id,
-                           title=title,
-                           wiki=wiki,
-                           wiki_url=url,
-                           wiki_image=img)
-
-        session.add(wiki_record)
-        session.commit()
-        logger.debug(f"'{title}' added to db ~ for news_id {str(news_id)}")
-
-
-def remove_accents(s):
-    """ remove accents which database may not be able to handle """
-    return unidecode(s)
-
-
 def render_text(text, entities):
-    """ custom rendering of text with highlighted terms """
+    """Add html class "highlight" to substrings in the text
+
+    Args:
+        text (str): text with substrings that need to be highlighted
+        entities (array-like): list of substrings to highlight
+
+    Returns:
+        str: text formatted for html
+    """
     entity_locs = []
     for ent in entities:
         if ' (organization)' in ent:
@@ -174,35 +177,55 @@ def render_text(text, entities):
     return text
 
 
-def ingest_wiki(wiki_df, engine_string):
-    """ ingest wiki dataframe """
+def render_news_col(news_df, df, args):
+    """Add html class "highlight" to substrings in the text
+
+    Args:
+        news_df (obj `pandas.DataFrame`):
+            dataframe with `news` column with substrings to be highlighted
+        df (obj `pandas.DataFrame`):
+            dataframe with which can be merged with news_df to find entities
+        args (dict): yaml-style config with keys:
+            'raw_column', 'new_column', 'entity_column'
+
+    Returns:
+        obj `pandas.DataFrame`: with column 'news_dis' formatted for html
+    """
+
+    news_df[args['new_column']] = ''
+    news_obs = news_df[args['raw_column']].unique()
+
+    for i, row in news_df.iterrows():
+        date, news_id, headline, news, image, url, _ = row
+        entities = df.loc[df['news_id'] == news_id, args['entity_column']]. \
+            drop_duplicates().values
+        news_df.loc[i, args['new_column']] = render_text(news, entities)
+    return news_df
+
+
+def ingest_wiki(wiki_df, engine_string) -> None:
+    """Ingest wiki dataframe to database
+
+    Args:
+        wiki_df (obj `pandas.DataFrame`): with the following columns
+            date, news_id, title, wiki, url, image
+        engine_string (str): engine string for database
+    """
 
     tm = WikiNewsManager(app=None, engine_string=engine_string)
     for _, row in wiki_df.iterrows():
         date, news_id, title, wiki, url, image = row
         tm.add_wiki(date, news_id, title, wiki, url, image)
-    logger.info(f"{len(wiki_df)} rows added to 'wiki' table")
+    logger.info("%i rows added to 'wiki' table", {len(wiki_df)})
     tm.close()
 
 
-def render_news_col(news_df, df):
-    """ ingest news dataframe """
-    news_df['news_dis'] = ''
-    news_obs = news_df['news'].unique()
-
-    for i, row in news_df.iterrows():
-        date, news_id, headline, news, image, url, _ = row
-        entities = df.loc[df['news_id'] == news_id, 'entity']. \
-            drop_duplicates().values
-        news_df.loc[i, 'news_dis'] = render_text(news, entities)
-    return news_df
-
-
-def ingest_news(news_df, engine_string):
-    """ingest news dataframe to database
+def ingest_news(news_df, engine_string) -> None:
+    """Ingest news dataframe to database
 
     Args:
-        news_df (str): file_path referencing output from filter_data()
+        news_df (obj `pandas.DataFrame`): with the following columns
+            date, news_id, headline, news, image, url, news_dis
         engine_string (str): engine string for database
     """
 
@@ -210,29 +233,55 @@ def ingest_news(news_df, engine_string):
     for _, row in news_df.iterrows():
         date, news_id, headline, news, image, url, news_dis = row
         tm.add_news(date, news_id, headline, news, news_dis, image, url)
-    logger.info(f"{len(news_df)} rows  added to 'news' table")
+    logger.info("%i rows  added to 'news' table", {len(news_df)})
     tm.close()
 
 
-def ingest(file_path, engine_string):
-    """after data is joined and filtered, ingest to database
+def remove_accents(s):
+    """ remove accents which database may not be able to handle """
+    return unidecode(s)
+
+
+def normalize(df, args):
+    """normalizes non-utf chars in a primary key to avoid nonunique errors
+
+    Args:
+        df (obj `pandas.DataFrame`)
+        args (dict): yaml-style config with keys:
+            'primary_key', 'primary_keys'
+    """
+
+    df[args['primary_key']] = df[args['primary_key']].apply(remove_accents)
+    # when accents are removed, the primary keys may no longer be unique
+    df = df.drop_duplicates(args['primary_keys'])
+    return df
+
+
+def ingest(file_path, engine_string, args) -> None:
+    """Orchestration function; after data is joined and filtered, ingest to db
 
     Args:
         file_path (str): file_path referencing output from filter_data()
         engine_string (str): engine string for database
+        args (dict): yaml-style config with:
+            args['normalize']['primary_key']
+            args['normalize']['primary_keys']
+            args['news']['raw_columns']
+            args['wiki']['raw_columns']
+            args['render']
     """
+
     df = pd.read_csv(file_path)
     df = df.fillna('')
 
-    # when accents are removed, the primary keys may no longer be unique
-    df['title'] = df['title'].apply(remove_accents)
-    df = df.drop_duplicates(['news_id', 'entity', 'title'])
+    if 'normalize' in args:
+        df = normalize(df, args['normalize'])
 
-    wiki_df = df[['date', 'news_id', 'title', 'wiki', 'wiki_url', 'wiki_image']] \
+    wiki_df = df[args['wiki']['raw_columns']] \
         .drop_duplicates()
     ingest_wiki(wiki_df, engine_string)
 
-    news_df = df[['date', 'news_id', 'headline', 'news', 'news_image', 'news_url']] \
+    news_df = df[args['news']['raw_columns']] \
         .drop_duplicates()
-    news_df = render_news_col(news_df, df)
+    news_df = render_news_col(news_df, df, args['render'])
     ingest_news(news_df, engine_string)
