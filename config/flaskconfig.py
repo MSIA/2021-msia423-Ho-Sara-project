@@ -13,11 +13,11 @@ SQLALCHEMY_ECHO = False  # If true, SQL for queries made will be printed
 MAX_ROWS_SHOW = 100
 
 # Connection string
-AWS_ENGINE_STRING = os.environ.get('AWS_ENGINE_STRING')
+ENGINE_STRING = os.environ.get('ENGINE_STRING')
 DOCKER_CONTAINER = os.environ.get('AM_I_IN_A_DOCKER_CONTAINER', False)
-if DOCKER_CONTAINER or (AWS_ENGINE_STRING is not None):
-    logger.info(f'connecting to `AWS_ENGINE_STRING`')
-    SQLALCHEMY_DATABASE_URI = AWS_ENGINE_STRING
+
+if DOCKER_CONTAINER or (ENGINE_STRING is not None) or (ENGINE_STRING == ''):
+    logger.info(f'using env variable $ENGINE_STRING to connect to db')
 else:
-    logger.info(f'connecting to local entries.db')
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///data/entries.db'
+    logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+    ENGINE_STRING = 'sqlite:///data/entries.db'
