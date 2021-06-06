@@ -1,12 +1,13 @@
 from datetime import datetime
 import logging
 import logging.config
+import traceback
 
 import pandas as pd
 from unidecode import unidecode
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, MetaData
+from sqlalchemy import Column, Integer, String, DateTime, MetaData, Text, Table
 from sqlalchemy.orm import sessionmaker
 from flask_sqlalchemy import SQLAlchemy
 
@@ -25,7 +26,7 @@ class Wiki(Base):
     news_id = Column(Integer)
     entity = Column(String(100))
     title = Column(String(100), unique=False)
-    wiki = Column(String(10000), unique=False, nullable=False)
+    wiki = Column(Text(10000), unique=False, nullable=False)
     wiki_url = Column(String(1000), unique=False, nullable=False)
     wiki_image = Column(String(1000), unique=False, nullable=True)
 
@@ -41,8 +42,8 @@ class News(Base):
     date = Column(DateTime, primary_key=True)
     news_id = Column(Integer, primary_key=True)
     headline = Column(String(1000), unique=False, nullable=False)
-    news = Column(String(10000), unique=False, nullable=False)
-    news_dis = Column(String(10000), unique=False, nullable=False)
+    news = Column(Text(10000), unique=False, nullable=False)
+    news_dis = Column(Text(10000), unique=False, nullable=False)
     news_image = Column(String(1000), unique=False, nullable=False)
     news_url = Column(String(1000), unique=False, nullable=False)
 
@@ -50,28 +51,45 @@ class News(Base):
         return '<News id %r>' % self.news_id
 
 
-def drop_ifexists(engine_string, table_name):
-    """Drop a table via engine_string if it exists
+def delete_ifexists(engine_string, table_name):
+    """Delete rows from a table via engine_string
     to make way for ingesting new data
     """
     engine = sqlalchemy.create_engine(engine_string)
-    base = declarative_base()
-    metadata = MetaData(engine, reflect=True)
 
-    table = metadata.tables.get(table_name)
-    if table is not None:
-        logger.info(f'Deleting {table_name} table')
-        base.metadata.drop_all(engine, [table], checkfirst=True)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
+
+    inspector = sqlalchemy.inspect(engine)
+    if table_name in inspector.get_table_names():
+        try:
+            logger.debug(f'Try deleting rows from {table_name} table')
+            table = Table(table_name, metadata, autoload_with=engine)
+            session.query(table).delete(synchronize_session=False)
+            session.commit()
+            logger.debug(f'Successfully rows from {table_name} table')
+        except:
+            logger.warning(f'Could not delete rows from {table_name}')
+            traceback.print_exc()
+            session.rollback()
 
 
 def create_db(engine_string: str) -> None:
     """Create database from provided engine string
     sqlite or rds instance engine
     """
+    if 'aws.com' in engine_string:
+        logger.debug("connecting to AWS engine string")
+    else:
+        logger.debug("connecting to non-AWS engine string")
+
     engine = sqlalchemy.create_engine(engine_string)
 
-    drop_ifexists(engine_string, 'wiki')
-    drop_ifexists(engine_string, 'news')
+    delete_ifexists(engine_string, 'wiki')
+    delete_ifexists(engine_string, 'news')
 
     Base.metadata.create_all(engine)
     logger.info("Database created.")
@@ -89,7 +107,7 @@ class WikiNewsManager:
             logger.info('using WikiNewsManager for app')
             self.db = SQLAlchemy(app)
             self.session = self.db.session
-        if engine_string:
+        elif engine_string:
             logger.info('using WikiNewsManager for db')
             engine = sqlalchemy.create_engine(engine_string)
             Session = sessionmaker(bind=engine)
@@ -181,7 +199,12 @@ def render_news_col(news_df, df):
 
 
 def ingest_news(news_df, engine_string):
-    """ ingest news dataframe """
+    """ingest news dataframe to database
+
+    Args:
+        news_df (str): file_path referencing output from filter_data()
+        engine_string (str): engine string for database
+    """
 
     tm = WikiNewsManager(app=None, engine_string=engine_string)
     for _, row in news_df.iterrows():
@@ -195,8 +218,8 @@ def ingest(file_path, engine_string):
     """after data is joined and filtered, ingest to database
 
     Args:
-        file_path (str): file_path referencing output from filter_algo()
-        enging_string (str): file_path referencing output from filter_algo()
+        file_path (str): file_path referencing output from filter_data()
+        engine_string (str): engine string for database
     """
     df = pd.read_csv(file_path)
     df = df.fillna('')
