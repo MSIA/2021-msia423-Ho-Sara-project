@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" type="image/x-icon" href="static/planet-earth.svg"/>
+    <link href="static/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
+</head>
+      
+
+<body>
+    <div id="head">
+        <img src="static/planet-earth.svg" style="width:70px; padding:10px;">
+        <h1><a href="{{ url_for('index') }}">WikiNews</a></h1>
+        <p style="color:#9EADA2"><a href="{{ url_for('about') }}">About</a></p>
+    </div>
+
+    <div id="about">
+        <h3 class="highlight abouth3">Mission</h3>
+        <p>Provide context to daily headlines</p>
+        <p>Promote slow news consumption</p>
+        <p>Reduce bias and misinformation</p>
+
+        <h3 class="highlight abouth3">Sources</h3>
+        <p>Headlines courtesy of <a href="https://newsapi.org/">News API</a></p>
+        <p>Matches to Wikipedia made using <a href="https://en.wikipedia.org/w/api.php">Wikipedia API</a></p>
+
+        <h3 class="highlight abouth3">Method</h3>
+        <p>1. Find persons, organizations, and other entities using <a href="https://spacy.io/api/entityrecognizer/">Spacy Named Entity Recognition</a></p>
+        <p>2. Match entities to Wikipedia articles using Wikipedia's API</p>
+        <p>3. Filter out irrelevant matches
+            using similarity measure between Wikipedia summary and News content</p>
+    </div>
+
+</body>
+
+</html>
