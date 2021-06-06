@@ -3,6 +3,7 @@ import logging
 import logging.config
 import traceback
 
+import yaml
 import pandas as pd
 from unidecode import unidecode
 import sqlalchemy
@@ -91,8 +92,9 @@ class WikiNewsManager:
                            news_url=url)
         session.add(news_record)
         session.commit()
-        logger.debug(f"'%s' added to db with id %i",
-                     (news[0:20], news_id))
+        logger.debug("'%s' added to db with id %i",
+                     news[0:20],
+                     news_id)
 
     def add_wiki(self, date: datetime, news_id: int, title: str,
                  wiki: str, url: str, img: str) -> None:
@@ -108,8 +110,9 @@ class WikiNewsManager:
 
         session.add(wiki_record)
         session.commit()
-        logger.debug(f"'%s' added to db ~ for news_id %i",
-                     (title, news_id))
+        logger.debug("'%s' added to db ~ for news_id %i",
+                     title,
+                     news_id)
 
 
 def delete_ifexists(engine_string, table_name) -> None:
@@ -134,9 +137,9 @@ def delete_ifexists(engine_string, table_name) -> None:
             table = Table(table_name, metadata, autoload_with=engine)
             session.query(table).delete(synchronize_session=False)
             session.commit()
-            logger.debug('Successfully rows from  table %s', {table_name})
+            logger.debug('Successfully rows from  table %s', table_name)
         except:
-            logger.warning('Could not delete rows from %s', {table_name})
+            logger.warning('Could not delete rows from %s', table_name)
             traceback.print_exc()
             session.rollback()
 
@@ -196,10 +199,9 @@ def render_news_col(news_df, df, args):
     news_obs = news_df[args['raw_column']].unique()
 
     for i, row in news_df.iterrows():
-        date, news_id, headline, news, image, url, _ = row
-        entities = df.loc[df['news_id'] == news_id, args['entity_column']]. \
+        entities = df.loc[df['news_id'] == row['news_id'], args['entity_column']]. \
             drop_duplicates().values
-        news_df.loc[i, args['new_column']] = render_text(news, entities)
+        news_df.loc[i, args['new_column']] = render_text(row['news'], entities)
     return news_df
 
 
@@ -216,7 +218,7 @@ def ingest_wiki(wiki_df, engine_string) -> None:
     for _, row in wiki_df.iterrows():
         date, news_id, title, wiki, url, image = row
         tm.add_wiki(date, news_id, title, wiki, url, image)
-    logger.info("%i rows added to 'wiki' table", {len(wiki_df)})
+    logger.info("%i rows added to 'wiki' table", len(wiki_df))
     tm.close()
 
 
@@ -233,7 +235,7 @@ def ingest_news(news_df, engine_string) -> None:
     for _, row in news_df.iterrows():
         date, news_id, headline, news, image, url, news_dis = row
         tm.add_news(date, news_id, headline, news, news_dis, image, url)
-    logger.info("%i rows  added to 'news' table", {len(news_df)})
+    logger.info("%i rows  added to 'news' table", len(news_df))
     tm.close()
 
 
@@ -257,7 +259,7 @@ def normalize(df, args):
     return df
 
 
-def ingest(file_path, engine_string, args) -> None:
+def ingest(args) -> None:
     """Orchestration function; after data is joined and filtered, ingest to db
 
     Args:
@@ -270,18 +272,19 @@ def ingest(file_path, engine_string, args) -> None:
             args['wiki']['raw_columns']
             args['render']
     """
+    with open(args.config, 'r') as f:
+        c = yaml.load(f, Loader=yaml.FullLoader)
 
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(args.input)
     df = df.fillna('')
 
-    if 'normalize' in args:
-        df = normalize(df, args['normalize'])
+    if 'normalize' in c:
+        df = normalize(df, c['normalize'])
 
-    wiki_df = df[args['wiki']['raw_columns']] \
-        .drop_duplicates()
-    ingest_wiki(wiki_df, engine_string)
+    wiki_df = df[c['wiki']['raw_columns']]
+    wiki_df = wiki_df.drop_duplicates(['date', 'news_id', 'title'])
+    ingest_wiki(wiki_df, args.engine_string)
 
-    news_df = df[args['news']['raw_columns']] \
-        .drop_duplicates()
-    news_df = render_news_col(news_df, df, args['render'])
-    ingest_news(news_df, engine_string)
+    news_df = df[c['news']['raw_columns']].drop_duplicates()
+    news_df = render_news_col(news_df, df, c['render'])
+    ingest_news(news_df, args.engine_string)
