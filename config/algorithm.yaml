@@ -4,7 +4,7 @@ algorithm:
   version: AA1
   description: runs a similarity score-based filtering algorithm
   
-threshhold: 0.2
+threshhold: 0.1
 raw_features:
   - wiki
   - news

@@ -36,6 +36,7 @@ source_words:
   - Fox News
   - Yahoo Sports
   - Reuters
+  - ESPN
 stop_categories:
   - disambiguation
   - given name

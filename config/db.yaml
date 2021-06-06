@@ -24,7 +24,7 @@ news:
 
 normalize:
   primary_key: title
-  primar_keys:
+  primary_keys:
     - news_id
     - entity
     - title
@@ -32,4 +32,4 @@ normalize:
 render:
   raw_column: news
   new_column: news_dis
-  entity_column: entities
+  entity_column: entity
