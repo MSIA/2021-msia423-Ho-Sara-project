@@ -1,15 +1,20 @@
 import os
 from datetime import date
+import yaml
+import logging
 
 from difflib import SequenceMatcher
 import pandas as pd
 import nltk
 
-nltk.download('stopwords')
 from nltk.corpus import stopwords
 
+logger = logging.getLogger(__name__)
 
-def sim_sm(x):
+logging.getLogger("utils").setLevel(logging.ERROR)
+
+
+def sim_score(x):
     """Calculate the SequenceMatcher similarity score
 
     Args:
@@ -25,23 +30,22 @@ def remove_stopwords(df, args):
     """remove stopwords from specified dataframe columns
 
     Args:
-        df (pandas dataframe): dataframe with some str columns
-        args (dict): dict with 'config': yaml file path
+        df (obj `pandas.DataFrame`): dataframe with some str columns
+        args (dict): yaml-style config with keys
+            'raw_features' and 'processed_features'
 
     Returns:
-        (pandas dataframe): dataframe, but with processed str
-                               columns with stopwords removed
+        (obj `pandas.DataFrame`): dataframe, but with a processed str
+                                  column with stopwords removed
     """
     stop_words = stopwords.words('english')
 
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
-
-    for raw, processed in zip(c['raw_features'], c['processed_features']):
-        df[processed] = df[raw].str.lower().str.split(). \
+    for raw, proc in zip(args['raw_features'], args['processed_features']):
+        df[proc] = df[raw].str.lower().str.split(). \
             apply(lambda x: ' '.join([item for item in x
                                       if item not in stop_words]))
 
+    logger.debug("removed stopwords, returning processed df")
     return df
 
 
@@ -53,7 +57,7 @@ def join_data(news_path, wiki_path):
         wiki_path (str): file path
 
     Returns:
-        (pandas dataframe): joined dataframe
+        (obj `pandas.DataFrame`): joined dataframe
     """
 
     wikidf = pd.read_csv(wiki_path)
@@ -69,25 +73,32 @@ def join_data(news_path, wiki_path):
 
 
 def filter_data(args):
-    """Filter data based on arguments
+    """Orchestration function; clean and filter based on similarity score
 
     Args:
-        args (dict): dict with 'config': yaml file path
-                     and 'input': file path of joined() ouput
+        args (dict): yaml-style config with keys:
+            'config': yaml file path
+            'input': file path of joined() ouput
+            'processed_features': to be processed and used for similarity score
+            'threshhold': similarity score cutoff to determine relevancy
 
     Returns:
-        (pandas dataframe): data with irrelevant entities removed
+        (obj `pandas.DataFrame`): data with irrelevant entities removed
     """
     with open(args.config, 'r') as f:
         c = yaml.load(f, Loader=yaml.FullLoader)
+        logger.debug("loaded yaml from : %s", args.config)
 
     df = pd.read_csv(args.input)
+    logger.debug('read %i lines of data', len(df))
 
-    df = df.dropna()
-    df = remove_stopwords(df)
+    df = remove_stopwords(df, c)
+    logger.info('removed stop words')
 
-    df['sm_sim'] = df[c['processed_features']].apply(sim_sm, axis=1)
+    df['sm_sim'] = df[c['processed_features']].apply(sim_score, axis=1)
+    logger.info("mean similarity score: %f", df['sm_sim'].mean())
+
     df['predict'] = df['sm_sim'] > c['threshhold']
-    df.drop_duplicates(['news_id', 'title']).loc[df['predict']]
+    df = df.drop_duplicates(['news_id', 'title']).loc[df['predict']]
 
     return df

@@ -68,11 +68,9 @@ def load_news(args):
     return news_table
 
 
-def news2entities(news, args):
+def news2entities(news, c):
     """ Use space to convert a news description
     into lists of entities and labels """
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
 
     nlp = spacy.load(c['spacy_model'])
     doc = nlp(news)
@@ -95,7 +93,8 @@ def load_wiki(args):
         news_table: pandas dataframe with news headlines
         timeout: `int` number of seconds to wait for a wiki API query
 
-    Returns: obj `pandas.DataFrame`
+    Returns:
+        obj `pandas.DataFrame`
     """
     with open(args.config, 'r') as f:
         c = yaml.load(f, Loader=yaml.FullLoader)
@@ -112,7 +111,7 @@ def load_wiki(args):
 
         logger.info("----Processing '%s...'", news[0:25])
 
-        entities = news2entities(news)
+        entities = news2entities(news, c)
         titles = []
         for ent in entities:
             articledata = wiki_query(ent, **c)
@@ -152,6 +151,7 @@ def load_wiki(args):
                     end = wiki.find('==')
                     wiki = wiki[0:end]
 
+                logger.info("%s found as a match, info['title']")
                 table_data.append({'news_id': news_id,
                                    'entity': ent,
                                    'title': info['title'],
@@ -178,6 +178,7 @@ def wiki_query(query, **c):
     S = requests.Session()
     url = c['wiki_url']
     params = c['wiki_query']
+    params['srsearch'] = query
 
     try:
         R = S.get(url=url, params=params, timeout=c['timeout'])
@@ -208,15 +209,18 @@ def wiki_pagecontent(title, **c):
     Returns:
         object: `JSON` formatted data
     """
+    logger.debug("gathering pagecontent for page %s", title)
 
     S = requests.Session()
     url = c['wiki_url']
     params = c['wiki_pagecontent']
+    params['titles'] = title
 
     signal.signal(signal.SIGALRM,
-                  lambda signum, frame: 
+                  lambda signum, frame:
                       logger.warning("Wiki API wait time over %i, ",
-                                     "consider trying another time", c['timeout']))
+                                     "consider trying another time",
+                                     c['timeout']))
     signal.alarm(c['timeout'])    # Enable the alarm
 
     try:
