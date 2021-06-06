@@ -26,19 +26,15 @@ QA: Haozhang Deng
 
 # Project charter
 
-<img src="/figures/news.jpg" alt="News" width="200"/>
-
 The fast-paced nature of online news delivery and social media means that readers today regularly ingest news headlines without meaningful context. This app offers an alternative way to understand the news by providing context through Wikipedia articles.
 
 ## Vision
-
-<img src="/figures/wikipedia.png" alt="Wiki" width="200"/>
 
 To display daily news content and suggest Wikipedia articles that are relevant to them. Users can read the news in a way is engaging and interactive, but with minimal bias and misinformation.
 
 ## Mission
 
-The headlines and news descriptions will come from one or more news APIs. Spacy's pretrained [Named Entity Recognition](https://spacy.io/api/entityrecognizer) (NER) tool can be used to extract names, organizations, locations, phrases, etc. from a news description. The resulting entities/topics can then be used to query wikipedia pages using the wikipedia API.
+The headlines and news descriptions [https://newsapi.org/](https://newsapi.org/). Spacy's pretrained [Named Entity Recognition](https://spacy.io/api/entityrecognizer) (NER) tool can be used to extract names, organizations, locations, phrases, etc. from a news description. The resulting entities/topics can then be used to query wikipedia pages using the wikipedia API.
 
 Given a search query, the Wikipedia API can return the most relevant articles. 
 
@@ -46,40 +42,26 @@ For example, here is an April 4th headline: `"GMC's newly-unveiled Hummer EV SUV
 
 ```
 GMC (automobile)
-2021-04-02T00:03:08Z
 
 GMC Hummer EV
-2021-04-04T00:38:23Z
 
 HP EliteBook
-2021-03-09T14:43:09Z
 ```
 
 The first two articles are relevant, but the third is not. Irrelevant articles can be removed if they fail to meet a similarity metric threshhold.
 
 - [News API](https://newsapi.org/v2/top-headlines?)
 - [Wikipedia API](https://en.wikipedia.org/w/api.php)
-- [Python wrapper for Wikipedia API](https://github.com/goldsmith/Wikipedia)
 
 ## Success criteria
 
 **Prediction metric:**
 
-After searching Wikipedia for the topic(s), the app should identify whether the top result is relevant to the news article. 
-
-A number of similarity metrics, along with text cleaning, can be tested before determining the optimal metric and threshhold. For example, using python's built-in `SequenceMatcher`, these two texts have a similarity score of 0.08. 
-
-from News API:
-
->"GMC just unveiled its $100,000 Hummer EV SUV with 830-horsepower that will hit streets in 2023 (GM). The Hummer EV pickup won\'t be the only "supertruck" in GMC\'s fleet after the automaker unveiled its Hummer EV SUV variant on Saturday. It\'s slated for release in spring 2023."
-
-from Wikipedia's page "GMC Hummer EV":
-
->"The GMC Hummer EV is both an upcoming off-road luxury electric vehicle produced by GMC (simply referred to as Hummer EV; and badged as HEV), and its own sub-brand. The Hummer EV line was launched in October 2020 through a live stream.\nThe Hummer EV sub-brand includes a pickup truck (SUT) and a confirmed Sport Utility Vehicle (SUV) that was introduced on 3rd of April 2021."
+After searching Wikipedia for the topic(s), the app should identify whether the top result is relevant to the news article. A number of similarity metrics are tested before determining the optimal metric and threshhold.
 
 **Business outcome:**
 
-Ideally the deployed app would track whether a user clicks on the Wikipedia articles that are linked. Business success can be measured based on a ratio of the number of internal link clicks versus overall visits to the web app. This is possible to measure but outside the scope of the project.
+Ideally the deployed app would track whether a user clicks on the drop-downs to the Wikipedia articles. Business success can be measured based on a ratio of the number of internal link clicks versus overall visits to the web app. This is possible to measure but outside the scope of the project.
 
 ## Directory structure 
 
@@ -87,38 +69,40 @@ Ideally the deployed app would track whether a user clicks on the Wikipedia arti
 ├── README.md                         <- You are here
 ├── api
 │   ├── static/                       <- CSS, JS files that remain static
-│   ├── templates/                    <- HTML (or other code) that is templated and changes based on a set of inputs
+│   ├── templates/                    <- HTML that is templated and changes based on a set of inputs
 │   ├── boot.sh                       <- Start up script for launching app in Docker container.
-│   ├── Dockerfile                    <- Dockerfile for building image to run app  
+│   ├── Dockerfile                    <- Dockerfile for building image to run app 
+│   ├── Dockerfile_update             <- Dockerfile for running makefile to update and ingest data  
 │
 ├── config                            <- Directory for configuration files 
 │   ├── local/                        <- Directory for keeping environment variables and other local configurations that *do not sync** to Github 
 │   ├── logging/                      <- Configuration of python loggers
 │   ├── flaskconfig.py                <- Configurations for Flask API 
-│
-├── data                              <- Folder that contains data used or generated.
-│   ├── sample/
-│
-├── deliverables/                     <- Any white papers, presentations, final work products that are presented or delivered to a stakeholder 
-│
-├── docs/                             <- Sphinx documentation based on Python docstrings. Optional for this project. 
-│
-├── figures/                          <- Figures for deliverables and README.md
+│   ├── algorithm.yaml                <- Configurations for src/algorithm.py 
+│   ├── load.yaml                     <- Configurations for src/load.py 
 |
-├── models/                           <- Trained model objects (TMOs), model predictions, and/or model summaries
+├── data                              
+│   ├── sample/                       <- Folder that contains sample data (static; syncs to GitHub)
+│   ├── daily/                        <- Folder that contains updated daily data (dynamic; does not sync to GitHub)
+│
+├── deliverables/
+│   ├── wikinews-06-07-21.pdf         <- Presentation explaining the project
 │
 ├── notebooks/
-│   ├── deliver/                      <- Notebooks shared with others / in final state
-│   ├── develop/                      <- Current notebooks being used in development.
-│
-├── reference/                        <- Any reference material relevant to the project
-│
+│   ├── algorithm.ipynb               <- Notebook which evaluates metrics relating to the algorithm
+│   
 ├── src/                              <- Source data for the project 
+│   ├── algorithm.py                  <- Algorithm to filter out irrelevant results
+│   ├── db.py                         <- Functionality to create database and ingest new data
+│   ├── load.py                       <- Functionality to make calls to APIs, match news to wikipedia pages, and save data into tables
+│   ├── s3.py                         <- Function to load local file to s3
 │
-├── test/                             <- Files necessary for running model tests (see documentation below) 
-│
-├── app.py                            <- Flask wrapper for running the model 
-├── run.py                            <- Simplifies the execution of one or more of the src scripts  
+├── test/                             <- Files necessary for running tests
+│   ├── test_db.py
+|
+├── Makefile 
+├── app.py                            <- Flask wrapper for displaying the filtered data 
+├── run.py                            <- Simplifies the execution the src scripts  
 ├── requirements.txt                  <- Python package dependencies 
 ```
 
@@ -129,6 +113,7 @@ Without an News API key, `load_new` commands will not run. You can generate one 
 Otherwise, you can skip loading new data. The rest of the commands will default to using existing data in local path `./data/sample`
 
 ## Running the app
+
 ### 1. Initialize the database 
 
 ### Load new data via API.
@@ -154,8 +139,6 @@ python run.py ingest
 By default, the data ingested will be sourced from `./data/sample`
 
 ### Set up database via engine
-
-There may be warnings regarding `Incorrect string value:` due to encoding constraints.
 
 To create database:
 ```bash
@@ -192,9 +175,6 @@ Load new data
 ```
 docker run \
   -e NEWS_API_KEY \
-  -e AWS_ACCESS_KEY_ID \
-  -e AWS_SECRET_ACCESS_KEY \
-  -e PYTHONIOENCODING=utf-8 \
   wikinews run.py load_new
 ```
 
@@ -204,25 +184,20 @@ docker run \
   -e NEWS_API_KEY \
   -e AWS_ACCESS_KEY_ID \
   -e AWS_SECRET_ACCESS_KEY \
-  -e PYTHONIOENCODING=utf-8 \
   wikinews run.py load_3 --local_path ./data
 ```
 
 Create database at .db file.
 ```bash
 docker run \
-	-e AWS_ACCESS_KEY_ID \
-	-e AWS_SECRET_ACCESS_KEY \
 	wikinews run.py create_db
 ```
 
 Create database at remote MySQL db.
 ```bash
 docker run \
-	-e AWS_ACCESS_KEY_ID \
-	-e AWS_SECRET_ACCESS_KEY \
 	wikinews run.py create_db \
-  --engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
+  --engine_string=${AWS_ENGINE_STRING}
 ```
 
 If using MySQL, access interface via docker,
@@ -234,8 +209,6 @@ docker run -it --rm \
     -u${MYSQL_USER} \
     -p${MYSQL_PASSWORD}
 ```
-
-![Wiki](/figures/mysqlschema.png)
 
 ### 2. Configure Flask app 
 
