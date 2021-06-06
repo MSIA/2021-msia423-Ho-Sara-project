@@ -8,7 +8,7 @@ from config.flaskconfig import *
 
 # Initialize the database session
 from src.db import Wiki, News, WikiNewsManager
-from config.flaskconfig import SQLALCHEMY_DATABASE_URI
+from config.flaskconfig import ENGINE_STRING
 
 # Initialize the Flask application
 app = Flask(__name__,
@@ -21,7 +21,9 @@ app.config.from_pyfile('config/flaskconfig.py')
 logging.config.fileConfig(app.config["LOGGING_CONFIG"])
 logger = logging.getLogger(app.config["APP_NAME"])
 
-manager = WikiNewsManager(engine_string=SQLALCHEMY_DATABASE_URI)
+manager = WikiNewsManager(engine_string=ENGINE_STRING)
+wn_session = manager.session
+
 
 @app.route('/')
 def index():
@@ -33,12 +35,17 @@ def index():
 
     Returns: rendered html template
     """
+    if 'aws.com' in ENGINE_STRING:
+        logger.debug("connecting to AWS engine string")
+    else:
+        logger.debug("connecting to non-AWS engine string")
 
     try:
-        date = manager.session.query(News.date).distinct().first()[0]
+        date = wn_session.query(News.date).distinct().first()[0]
         date = date.strftime('%b-%d-%Y')
-        wiki_entities = manager.session.query(Wiki).all()
-        news_entities = manager.session.query(News).all()
+
+        wiki_entities = wn_session.query(Wiki).all()
+        news_entities = wn_session.query(News).all()
 
         logger.debug("Index page accessed")
         return render_template('index.html',
@@ -47,11 +54,16 @@ def index():
                                news_entities=news_entities)
     except:
         logger.debug("session.rollback() invoked")
-        manager.session.rollback()
+        wn_session.rollback()
 
         traceback.print_exc()
         logger.warning("Not able to display wikinews, error page returned")
         return render_template('error.html')
+
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 
 if __name__ == '__main__':

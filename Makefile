@@ -45,5 +45,5 @@ filter: ${daily_filtered}
 create_db:
 	python3 run.py create_db
 
-ingest: ${daily_filtered}
-	python3 run.py ingest --input=${daily_filtered} --s3_path=${s3_bucket}
+ingest: ${daily_filtered} config/db.yaml
+	python3 run.py ingest --input=${daily_filtered} --s3_path=${s3_bucket} --config=config/db.yaml

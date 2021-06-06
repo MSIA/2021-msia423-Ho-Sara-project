@@ -12,17 +12,12 @@ from src.load import load_wiki, load_news
 from src.algorithm import filter_data, join_data
 from src.s3 import upload
 
-from config.flaskconfig import SQLALCHEMY_DATABASE_URI
+from config.flaskconfig import ENGINE_STRING
 
 logging.config.fileConfig("config/logging/local.conf",
                           disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
-
 logging.getLogger("s3fs").setLevel(logging.WARNING)
-
-with open('config/config.yaml', "r") as f:
-    c = yaml.load(f, Loader=yaml.FullLoader)
-logger.info("Configuration file loaded from %s" % 'config/config.yaml')
 
 
 if __name__ == '__main__':
@@ -45,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', default=None,
                         help='Path to save output CSV (default = None)')
 
-    parser.add_argument("--engine_string", default=SQLALCHEMY_DATABASE_URI,
+    parser.add_argument("--engine_string", default=ENGINE_STRING,
                         help="connection URI for database")
     parser.add_argument("--s3_path",
                         help="s3 path")
@@ -82,8 +77,7 @@ if __name__ == '__main__':
             logger.info('Using s3 path for ingesting')
             args.input = args.s3_path + '/' + args.input
 
-        ingest(file_path=args.input,
-               engine_string=args.engine_string)
+        ingest(args)
 
     elif args.step == 's3':
         if args.input is not None:
