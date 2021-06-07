@@ -5,9 +5,13 @@
 from datetime import date
 from difflib import SequenceMatcher
 import logging
+import math
+import re
+from collections import Counter
 
 import yaml
 import pandas as pd
+from scipy import stats
 
 from nltk.corpus import stopwords
 
@@ -16,16 +20,42 @@ logger = logging.getLogger(__name__)
 logging.getLogger("utils").setLevel(logging.ERROR)
 
 
-def sim_score(row):
-    """Calculate the SequenceMatcher similarity score
+# def sim_score(row):
+#     """Calculate the SequenceMatcher similarity score
 
-    Args:
-        row (array-like): containing two strings to compare
+#     Args:
+#         row (array-like): containing two strings to compare
 
-    Returns:
-        (float): similarity score
-    """
-    return SequenceMatcher(None, row[0], row[1]).ratio()
+#     Returns:
+#         (float): similarity score
+#     """
+#     return SequenceMatcher(None, row[0], row[1]).ratio()
+
+def get_cosine(vec1, vec2):
+    intersection = set(vec1.keys()) & set(vec2.keys())
+    numerator = sum([vec1[x] * vec2[x] for x in intersection])
+
+    sum1 = sum([vec1[x] ** 2 for x in list(vec1.keys())])
+    sum2 = sum([vec2[x] ** 2 for x in list(vec2.keys())])
+    denominator = math.sqrt(sum1) * math.sqrt(sum2)
+
+    if not denominator:
+        return 0.0
+    else:
+        return float(numerator) / denominator
+
+
+def text_to_vector(text):
+    WORD = re.compile(r"\w+")
+    words = WORD.findall(text)
+    return Counter(words)
+
+
+def cos_pipeline(x):
+    vector1 = text_to_vector(x[0])
+    vector2 = text_to_vector(x[1])
+
+    return get_cosine(vector1, vector2)
 
 
 def remove_stopwords(df, args):
@@ -97,7 +127,7 @@ def filter_data(args):
     df = remove_stopwords(df, conf)
     logger.info('removed stop words')
 
-    df['sm_sim'] = df[conf['processed_features']].apply(sim_score, axis=1)
+    df['sm_sim'] = df[conf['processed_features']].apply(cos_pipeline, axis=1)
     logger.info("mean similarity score: %f", df['sm_sim'].mean())
 
     df['predict'] = df['sm_sim'] > conf['threshhold']
