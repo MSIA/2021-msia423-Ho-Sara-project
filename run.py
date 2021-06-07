@@ -1,13 +1,22 @@
-import os
+"""Orchestration script
+
+runs an arg parser which allows for the following steps:
+load_news: run API
+load_wiki:
+filter:
+create_db
+join
+ingest
+s3
+
+this script is designed to work with ./Makefile
+"""
+
 import argparse
 import logging
 import logging.config
-import yaml
 
-import pandas as pd
-import s3fs
-
-from src.db import WikiNewsManager, create_db, ingest
+from src.db import create_db, ingest
 from src.load import load_wiki, load_news
 from src.algorithm import filter_data, join_data
 from src.s3 import upload
@@ -89,7 +98,7 @@ if __name__ == '__main__':
 
     if args.output is not None:
         output.to_csv(args.output, index=False)
-        logger.info("Output saved to %s" % args.output)
+        logger.info("Output saved to %s", args.output)
 
         if args.s3_path is not None:
             upload(args.output, args.s3_path)

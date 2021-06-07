@@ -1,10 +1,13 @@
-import os
+"""Web app serving filtered news and wiki matches
+
+"""
+
 import traceback
 import logging.config
 
+import sqlalchemy
 from flask import Flask
-from flask import render_template, request, redirect, url_for
-from config.flaskconfig import *
+from flask import render_template
 
 # Initialize the database session
 from src.db import Wiki, News, WikiNewsManager
@@ -52,7 +55,7 @@ def index():
                                date=date,
                                wiki_entities=wiki_entities,
                                news_entities=news_entities)
-    except:
+    except sqlalchemy.exc.InvalidRequestError:
         logger.debug("session.rollback() invoked")
         wn_session.rollback()
 
@@ -63,6 +66,7 @@ def index():
 
 @app.route('/about')
 def about():
+    """render about.html"""
     return render_template('about.html')
 
 
