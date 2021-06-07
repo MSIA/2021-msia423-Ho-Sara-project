@@ -1,3 +1,7 @@
+"""Module containing functions to set up and ingest data to database
+
+"""
+
 from datetime import datetime
 import logging
 import logging.config
@@ -53,6 +57,7 @@ class News(Base):
 
 
 class WikiNewsManager:
+    """Configuration for ingesting data into database"""
 
     def __init__(self, app=None, engine_string=None):
         """
@@ -172,7 +177,6 @@ def render_text(text, entities):
     Returns:
         str: text formatted for html
     """
-    entity_locs = []
     for ent in entities:
         if ' (organization)' in ent:
             ent = ent.replace(' (organization)', '')
@@ -196,7 +200,6 @@ def render_news_col(news_df, df, args):
     """
 
     news_df[args['new_column']] = ''
-    news_obs = news_df[args['raw_column']].unique()
 
     for i, row in news_df.iterrows():
         entities = df.loc[df['news_id'] == row['news_id'], args['entity_column']]. \
@@ -214,12 +217,12 @@ def ingest_wiki(wiki_df, engine_string) -> None:
         engine_string (str): engine string for database
     """
 
-    tm = WikiNewsManager(app=None, engine_string=engine_string)
+    db_manager = WikiNewsManager(app=None, engine_string=engine_string)
     for _, row in wiki_df.iterrows():
         date, news_id, title, wiki, url, image = row
-        tm.add_wiki(date, news_id, title, wiki, url, image)
+        db_manager.add_wiki(date, news_id, title, wiki, url, image)
     logger.info("%i rows added to 'wiki' table", len(wiki_df))
-    tm.close()
+    db_manager.close()
 
 
 def ingest_news(news_df, engine_string) -> None:
@@ -231,12 +234,12 @@ def ingest_news(news_df, engine_string) -> None:
         engine_string (str): engine string for database
     """
 
-    tm = WikiNewsManager(app=None, engine_string=engine_string)
+    db_manager = WikiNewsManager(app=None, engine_string=engine_string)
     for _, row in news_df.iterrows():
         date, news_id, headline, news, image, url, news_dis = row
-        tm.add_news(date, news_id, headline, news, news_dis, image, url)
+        db_manager.add_news(date, news_id, headline, news, news_dis, image, url)
     logger.info("%i rows  added to 'news' table", len(news_df))
-    tm.close()
+    db_manager.close()
 
 
 def remove_accents(s):
@@ -265,26 +268,26 @@ def ingest(args) -> None:
     Args:
         file_path (str): file_path referencing output from filter_data()
         engine_string (str): engine string for database
-        args (dict): yaml-style config with:
+        args.config (dict): filepath to yaml-style config with:
             args['normalize']['primary_key']
             args['normalize']['primary_keys']
             args['news']['raw_columns']
             args['wiki']['raw_columns']
             args['render']
     """
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
+    with open(args.config, 'r') as conf_file:
+        conf = yaml.load(conf_file, Loader=yaml.FullLoader)
 
     df = pd.read_csv(args.input)
     df = df.fillna('')
 
-    if 'normalize' in c:
-        df = normalize(df, c['normalize'])
+    if 'normalize' in conf:
+        df = normalize(df, conf['normalize'])
 
-    wiki_df = df[c['wiki']['raw_columns']]
+    wiki_df = df[conf['wiki']['raw_columns']]
     wiki_df = wiki_df.drop_duplicates(['date', 'news_id', 'title'])
     ingest_wiki(wiki_df, args.engine_string)
 
-    news_df = df[c['news']['raw_columns']].drop_duplicates()
-    news_df = render_news_col(news_df, df, c['render'])
+    news_df = df[conf['news']['raw_columns']].drop_duplicates()
+    news_df = render_news_col(news_df, df, conf['render'])
     ingest_news(news_df, args.engine_string)

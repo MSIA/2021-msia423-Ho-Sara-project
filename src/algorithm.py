@@ -1,11 +1,13 @@
-import os
+""" Module containing functions to format the data for the algorithm and run it
+
+"""
+
 from datetime import date
-import yaml
+from difflib import SequenceMatcher
 import logging
 
-from difflib import SequenceMatcher
+import yaml
 import pandas as pd
-import nltk
 
 from nltk.corpus import stopwords
 
@@ -14,16 +16,16 @@ logger = logging.getLogger(__name__)
 logging.getLogger("utils").setLevel(logging.ERROR)
 
 
-def sim_score(x):
+def sim_score(row):
     """Calculate the SequenceMatcher similarity score
 
     Args:
-        x (array-like): containing two strings to compare
+        row (array-like): containing two strings to compare
 
     Returns:
         (float): similarity score
     """
-    return SequenceMatcher(None, x[0], x[1]).ratio()
+    return SequenceMatcher(None, row[0], row[1]).ratio()
 
 
 def remove_stopwords(df, args):
@@ -85,20 +87,20 @@ def filter_data(args):
     Returns:
         (obj `pandas.DataFrame`): data with irrelevant entities removed
     """
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
+    with open(args.config, 'r') as conf_file:
+        conf = yaml.load(conf_file, Loader=yaml.FullLoader)
         logger.debug("loaded yaml from : %s", args.config)
 
     df = pd.read_csv(args.input)
     logger.debug('read %i lines of data', len(df))
 
-    df = remove_stopwords(df, c)
+    df = remove_stopwords(df, conf)
     logger.info('removed stop words')
 
-    df['sm_sim'] = df[c['processed_features']].apply(sim_score, axis=1)
+    df['sm_sim'] = df[conf['processed_features']].apply(sim_score, axis=1)
     logger.info("mean similarity score: %f", df['sm_sim'].mean())
 
-    df['predict'] = df['sm_sim'] > c['threshhold']
+    df['predict'] = df['sm_sim'] > conf['threshhold']
     df = df.drop_duplicates(['news_id', 'title']).loc[df['predict']]
 
     return df

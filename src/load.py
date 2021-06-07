@@ -1,9 +1,12 @@
-from datetime import date
+"""Module containing functions to load and process API data
+
+"""
+
 import logging
 import logging.config
 import os
-import urllib3
 import signal
+import urllib3
 
 import yaml
 import requests
@@ -27,10 +30,9 @@ def load_news(args):
     Returns:
         obj `pandas.DataFrame`
     """
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
+    with open(args.config, 'r') as conf_file:
+        conf = yaml.load(conf_file, Loader=yaml.FullLoader)
 
-    today = date.today().strftime("%b-%d-%Y")
     logger.info('loading news from API')
 
     data = news_top(args)
@@ -52,7 +54,7 @@ def load_news(args):
 
         # remove publication information
         full = full.replace(article['source']['name'], ' ')
-        source_words = c['source_words']
+        source_words = conf['source_words']
         for word in source_words:
             full = full.replace(word, '')
 
@@ -68,16 +70,16 @@ def load_news(args):
     return news_table
 
 
-def news2entities(news, c):
+def news2entities(news, conf):
     """ Use space to convert a news description
     into lists of entities and labels """
 
-    nlp = spacy.load(c['spacy_model'])
+    nlp = spacy.load(conf['spacy_model'])
     doc = nlp(news)
 
     entities = []
     for ent in doc.ents:
-        if (ent.label_ in c['stop_spacy']) and (ent.text not in entities):
+        if (ent.label_ in conf['stop_spacy']) and (ent.text not in entities):
             text = ent.text
             if ent.label_ == 'ORG':
                 text += ' (organization)'
@@ -87,7 +89,7 @@ def news2entities(news, c):
 
 
 def load_wiki(args):
-    """Match news with wikipedia articles
+    """Orchestration function which matches news with wikipedia articles
 
     Args:
         news_table: pandas dataframe with news headlines
@@ -96,11 +98,10 @@ def load_wiki(args):
     Returns:
         obj `pandas.DataFrame`
     """
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
+    with open(args.config, 'r') as conf_file:
+        conf = yaml.load(conf_file, Loader=yaml.FullLoader)
 
     logger.info('matching news with wiki entries from Wikipedia API')
-    today = date.today().strftime("%b-%d-%Y")
     nlp = spacy.load("en_core_web_sm")
 
     news_table = pd.read_csv(args.input)
@@ -111,30 +112,31 @@ def load_wiki(args):
 
         logger.info("----Processing '%s...'", news[0:25])
 
-        entities = news2entities(news, c)
+        entities = news2entities(news, conf)
         titles = []
         for ent in entities:
-            articledata = wiki_query(ent, **c)
+            articledata = wiki_query(ent, **conf)
             search_results = articledata['query']['search']
 
             # n_results is how many search results to consider matching
-            for result in search_results[0:c['load_wiki']['n_results']]:
+            for result in search_results[0:conf['load_wiki']['n_results']]:
                 title = result['title']
                 if title in titles:
-                    pass
+                    logger.debug('%s has already been added', title)
+                    continue
 
-                info = wiki_pagecontent(title, **c)
+                info = wiki_pagecontent(title, **conf)
                 try:
                     categories = info['categories']
                     categories = ' '.join([kv['title']
                                           for kv in categories]).lower()
 
-                    stop_categories = c['stop_categories']
+                    stop_categories = conf['stop_categories']
                     for stop_category in stop_categories:
                         if stop_category in categories:
-                            pass
+                            continue
                 except KeyError:
-                    pass
+                    continue
 
                 if 'thumbnail' in info:
                     image = info['thumbnail']['source']
@@ -142,10 +144,10 @@ def load_wiki(args):
                     image = ''
 
                 wiki = info['extract']
-                stop_phrases = c['stop_phrases']
+                stop_phrases = conf['stop_phrases']
                 for stop_phrase in stop_phrases:
                     if stop_phrase in wiki:
-                        pass
+                        continue
 
                 if '==' in wiki:
                     end = wiki.find('==')
@@ -165,7 +167,7 @@ def load_wiki(args):
     return table
 
 
-def wiki_query(query, **c):
+def wiki_query(query, **conf):
     """ Given a search query, returns suggested Wikipedia pages
 
     Args:
@@ -175,31 +177,36 @@ def wiki_query(query, **c):
     Returns:
         object: `JSON` formatted data
     """
-    S = requests.Session()
-    url = c['wiki_url']
-    params = c['wiki_query']
+    session = requests.Session()
+    url = conf['wiki_url']
+    params = conf['wiki_query']
+
+    # add query to the parameters, required by API
     params['srsearch'] = query
 
     try:
-        R = S.get(url=url, params=params, timeout=c['timeout'])
-        return R.json()
+        return session.get(url=url,
+                           params=params,
+                           timeout=conf['timeout']).json()
 
-    except requests.ConnectionError as e:
-        logger.error("Connection Error. ",
-                     "Make sure you are connected to Internet.")
-        raise Exception()
+    except requests.ConnectionError:
+        logger.error("Make sure you are connected to Internet.")
+        return None
 
-    except urllib3.exceptions.ReadTimeoutError as e:
-        logger.warning("Timeout Error after %i seconds", c['timeout'])
-    except requests.exceptions.ReadTimeout as e:
-        logger.warning("Timeout Error after %i seconds", c['timeout'])
+    except urllib3.exceptions.ReadTimeoutError:
+        logger.warning("Timeout Error after %i seconds", conf['timeout'])
+        return None
 
-    except requests.RequestException as e:
-        logger.error("General Error: %s", str(e))
-        raise Exception()
+    except requests.exceptions.ReadTimeout:
+        logger.warning("Timeout Error after %i seconds", conf['timeout'])
+        return None
+
+    except requests.RequestException as exc:
+        logger.error("General Error: %s", exc)
+        return None
 
 
-def wiki_pagecontent(title, **c):
+def wiki_pagecontent(title, **conf):
     """ Returns `JSON` content from a given Wikipedia page
 
     Args:
@@ -211,30 +218,29 @@ def wiki_pagecontent(title, **c):
     """
     logger.debug("gathering pagecontent for page %s", title)
 
-    S = requests.Session()
-    url = c['wiki_url']
-    params = c['wiki_pagecontent']
+    session = requests.Session()
+    url = conf['wiki_url']
+    params = conf['wiki_pagecontent']
     params['titles'] = title
 
     signal.signal(signal.SIGALRM,
                   lambda signum, frame:
                       logger.warning("Wiki API wait time over %i, ",
-                                     "consider trying another time",
-                                     c['timeout']))
-    signal.alarm(c['timeout'])    # Enable the alarm
+                                     conf['timeout']))
+    signal.alarm(conf['timeout'])    # Enable the alarm
 
     try:
-        R = S.get(url=url, params=params)
+        resp = session.get(url=url, params=params)
         signal.alarm(0)      # Disable the alarm
-        return list(R.json()['query']['pages'].values())[0]
+        return list(resp.json()['query']['pages'].values())[0]
 
-    except requests.ConnectionError as e:
-        logger.error("Connection Error. ",
-                     "Make sure you are connected to Internet.")
-        raise Exception(e)
-    except requests.RequestException as e:
-        logger.error("General Error: %s", str(e))
-        raise Exception(e)
+    except requests.ConnectionError as exc:
+        logger.error("Make sure you are connected to Internet.")
+        return None
+
+    except requests.RequestException as exc:
+        logger.error("General Error: %s", exc)
+        return None
 
 
 def news_top(args):
@@ -249,37 +255,39 @@ def news_top(args):
     Returns:
         object: `JSON` formatted data
     """
-    with open(args.config, 'r') as f:
-        c = yaml.load(f, Loader=yaml.FullLoader)
+    with open(args.config, 'r') as conf_file:
+        conf = yaml.load(conf_file, Loader=yaml.FullLoader)
 
     NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
     if (NEWS_API_KEY is None) or (NEWS_API_KEY == ''):
-        raise Exception(f'No API key')
+        raise Exception('No API key')
 
-    S = requests.Session()
-    url = c['news_url']
-    params = c['news_top']
+    session = requests.Session()
+    url = conf['news_url']
+    params = conf['news_top']
     params['apiKey'] = NEWS_API_KEY
 
     try:
-        R = S.get(url=url, params=params, timeout=c['timeout'])
+        resp = session.get(url=url, params=params, timeout=conf['timeout'])
 
-        if R.json()['status'] == 'error':
-            logger.error("API error: %s", R.json()['message'])
+        if resp.json()['status'] == 'error':
+            logger.error("API error: %s", resp.json()['message'])
             raise Exception("API error")
         else:
-            return R.json()
+            return resp.json()
 
-    except requests.ConnectionError as e:
-        logger.error("Connection Error. ",
-                     "Make sure you are connected to Internet.")
-        raise Exception()
+    except requests.ConnectionError as exc:
+        logger.error("Make sure you are connected to Internet.")
+        return None
 
-    except urllib3.exceptions.ReadTimeoutError as e:
-        logger.warning("Timeout Error after %i seconds", c['timeout'])
-    except requests.exceptions.ReadTimeout as e:
-        logger.warning("Timeout Error after %i seconds", c['timeout'])
+    except urllib3.exceptions.ReadTimeoutError:
+        logger.warning("Timeout Error after %i seconds", conf['timeout'])
+        return None
 
-    except requests.RequestException as e:
-        logger.error("General Error: %s", str(e))
-        raise Exception()
+    except requests.exceptions.ReadTimeout:
+        logger.warning("Timeout Error after %i seconds", conf['timeout'])
+        return None
+
+    except requests.RequestException as exc:
+        logger.error("General Error: %s", str(exc))
+        return None

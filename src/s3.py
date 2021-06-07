@@ -1,4 +1,7 @@
-import os
+"""Module containing function and logger setup to load local files to s3
+
+"""
+
 import logging
 
 import boto3
