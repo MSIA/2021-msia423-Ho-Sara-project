@@ -16,8 +16,12 @@ import argparse
 import logging
 import logging.config
 
+import yaml
+import pandas as pd
+
 from src.db import create_db, ingest
-from src.load import load_wiki, load_news
+from src.load_news import load_news
+from src.load_wiki import load_wiki
 from src.algorithm import filter_data, join_data
 from src.s3 import upload
 
@@ -56,11 +60,36 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    if args.input is not None:
+        try:
+            data = pd.read_csv(args.input)
+        except FileNotFoundError:
+            logger.error("make sure input filepath is correct")
+            data = None
+
+    if args.config is not None:
+        with open(args.config, 'r') as conf_file:
+            conf = yaml.load(conf_file, Loader=yaml.FullLoader)
+
     if args.step == 'load_news':
-        output = load_news(args)
+        if conf is None:
+            logger.error("yaml configuration file required for load_news()")
+        else:
+            output = load_news(conf,
+                            source_words=conf['source_words'])
 
     elif args.step == 'load_wiki':
-        output = load_wiki(args)
+        if conf is None:
+            logger.error("yaml configuration file required for load_wiki()")
+        else:
+            output = load_wiki(data,
+                               query_conf=conf['wiki_query'],
+                               content_conf=conf['wiki_content'],
+                               stop_spacy=conf['stop_spacy'],
+                               spacy_model=conf['spacy_model'],
+                               stop_categories=conf['stop_categories'],
+                               stop_phrases=conf['stop_phrases'],
+                               n_results=conf['n_results'])
 
     elif args.step == 'create_db':
         create_db(args.engine_string)
