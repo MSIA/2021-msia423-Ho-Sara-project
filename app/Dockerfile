@@ -7,7 +7,6 @@ WORKDIR /app
 COPY ./requirements.txt /app/requirements.txt
 
 RUN pip3 install --upgrade pip
-RUN pip3 install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0.tar.gz --user
 RUN pip3 install -r requirements.txt
 
 COPY . /app/
