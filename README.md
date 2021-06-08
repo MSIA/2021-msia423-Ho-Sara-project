@@ -8,20 +8,15 @@ QA: Haozhang Deng
 
 - [Project charter](#project-charter)
 - [Directory structure](#directory-structure)
-- [Running the app](#running-the-app)
-  * [1. Initialize the database](#1-initialize-the-database)
-    + [Load new data via API](#Load-new-data-via-API)
-    + [Set up local database](#Set-up-local-database)
-    + [Set up database via engine](#Set-up-database-via-engine)
-    + [Load data into s3](#Load-data-into-s3)
-    + [Set up database in Docker](#Set-up-database-in-Docker)
-  * [2. Configure Flask app](#2-configure-flask-app)
-  * [3. Run the Flask app](#3-run-the-flask-app)
-- [Running the app in Docker](#running-the-app-in-docker)
-  * [1. Build the image](#1-build-the-image)
-  * [2. Run the container](#2-run-the-container)
-  * [3. Kill the container](#3-kill-the-container)
-
+- [1. Pre-requisites](#1-pre-requisites)
+    + [1.1 Environmental Variables](#11-Environmental-Variables)
+    + [1.2 Docker Builds](#12-Docker-Builds)
+- [2. Pipeline](#2-pipeline)
+    + [2.1 Load new data via API](#21-load-new-data-via-api)
+    + [2.2 Run algorithm](#22-run-algorithm)
+    + [2.3 Ingest to database](#23-ingest-to-database)
+- [3. Run the Flask app](#3-run-the-flask-app)
+- [4. Testing](#4-testing)
 <!-- tocstop -->
 
 # Project charter
@@ -72,7 +67,6 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 │   ├── templates/                    <- HTML that is templated and changes based on a set of inputs
 │   ├── boot.sh                       <- Start up script for launching app in Docker container.
 │   ├── Dockerfile                    <- Dockerfile for building image to run app 
-│   ├── Dockerfile_update             <- Dockerfile for running makefile to update and ingest data  
 │
 ├── config                            <- Directory for configuration files 
 │   ├── local/                        <- Directory for keeping environment variables and other local configurations that *do not sync** to Github 
@@ -80,9 +74,11 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 │   ├── flaskconfig.py                <- Configurations for Flask API 
 │   ├── algorithm.yaml                <- Configurations for src/algorithm.py 
 │   ├── load.yaml                     <- Configurations for src/load.py 
-|
+│
 ├── data                              
 │   ├── sample/                       <- Folder that contains sample data (static; syncs to GitHub)
+│   │   ├── news-entries.csv
+│   │   ├── wiki-entries.csv
 │   ├── daily/                        <- Folder that contains updated daily data (dynamic; does not sync to GitHub)
 │
 ├── deliverables/
@@ -94,35 +90,46 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 ├── src/                              <- Source data for the project 
 │   ├── algorithm.py                  <- Algorithm to filter out irrelevant results
 │   ├── db.py                         <- Functionality to create database and ingest new data
-│   ├── load.py                       <- Functionality to make calls to APIs, match news to wikipedia pages, and save data into tables
-│   ├── s3.py                         <- Function to load local file to s3
+│   ├── load_news.py                  <- Functionality to make calls to news API and save cleaned data into tables
+│   ├── load_wiki.py                  <- Functionality to make calls to wiki API, match news to wikipedia pages, and save data into tables
+│   ├── s3.py                         <- Function to load local files to s3
 │
 ├── test/                             <- Files necessary for running tests
 │   ├── test_db.py
-|
-├── Makefile 
 ├── app.py                            <- Flask wrapper for displaying the filtered data 
+├── Dockerfile_make                   <- Dockerfile for running Makefile pipeline
+├── Makefile                          <- Makefile for running pipeline to acquire data, apply algorithm, and ingest to db
 ├── run.py                            <- Simplifies the execution the src scripts  
 ├── requirements.txt                  <- Python package dependencies 
 ```
 
 ## 1. Pre-requisites
 
-## Environmental Variables:
+### 1.1 Environmental Variables:
 
-Without an News API key, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment.
-`export NEWS_API_KEY=<MY_KEY_HERE>`
-Otherwise, you can skip loading new data. The rest of the commands will default to using existing data in local path `./data/sample`
-
-## Docker builds:
-
-Runs entrypoint `make` to allow using the Makefile to aquire data, run the algorithm, and ingest to RDS
+Here is the recommended setup:
 ```
+export NEWS_API_KEY=<MY_NEWS_API_KEY>
+export AWS_ACCESS_KEY_ID=<MY_AWS_ACCESS_KEY_ID>
+export AWS_SECRET_ACCESS_KEY=<MY_AWS_SECRET_ACCESS_KEY>
+export ENGINE_STRING=<host>://<user>:<password>@<endpoint>:<port>/<database>
+```
+
+ - Without a valid `NEWS_API_KEY`, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment. Otherwise, you can skip loading new data. The rest of the pipeline will default to using existing data in local path `./data/sample`.
+
+ - Without a valid `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, the data will still be saved locally according to the path(s) set in the Makefile, but they will not be saved to S3.
+
+ - Without a valid `ENGINE_STRING`, a database will be created at `sqlite:///data/entries.db` and used throughout the pipeline.
+
+### 1.2 Docker builds:
+
+`Dockerfile_make` runs entrypoint `make` to allow using the Makefile to aquire data, run the algorithm, and ingest to RDS
+```bash
 docker build -f Dockerfile_make -t make_wikinews .
 ```
 
-Runs the app; can also be used for deployment via ECS
-```
+`app/Dockerfile` runs the app; it can also be used for deployment via ECS
+```bash
 docker build -f app/Dockerfile -t wikinews .
 ```
 
@@ -130,13 +137,14 @@ docker build -f app/Dockerfile -t wikinews .
 
 At each point, intermediate data are saved to S3, so `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are required in addition to other ad-hoc environmental variables.
 
-## Load new data via API.
+### 2.1 Load new data via API.
 
-```
+```bash
 make data
 ```
+
 or equivalently through Docker:
-```
+```bash
 docker run \
     --mount type=bind,source="$(pwd)",target=/app/ \
     -e AWS_ACCESS_KEY_ID \
@@ -145,13 +153,14 @@ docker run \
 make_wikinews data
 ```
 
-## Run algorithm
+### 2.2 Run algorithm
 
-```
+```bash
 make algorithm
 ```
+
 or equivalently through Docker:
-```
+```bash
 docker run \
     --mount type=bind,source="$(pwd)",target=/app/ \
     -e AWS_ACCESS_KEY_ID \
@@ -159,13 +168,16 @@ docker run \
 make_wikinews algorithm
 ```
 
-## Ingest to database
+### 2.3 Ingest to database
 
-```
+*In development, an AWS RDS database was used; it required access to Northwestern's VPN. If using a similar set-up, please make sure to connect to the required VPN*
+
+```bash
 make algorithm
 ```
+
 or equivalently through Docker:
-```
+```bash
 docker run \
     --mount type=bind,source="$(pwd)",target=/app/ \
     -e AWS_ACCESS_KEY_ID \
@@ -174,11 +186,7 @@ docker run \
 make_wikinews ingest
 ```
 
-If no `ENGINE_STRING` provided, the database will be created locally at `sqlite:///data/entries.db`. 
-
-## Access database [Optional]
-
-If using MySQL, access interface via docker,
+[Optional]. If using MySQL, access interface via Docker:
 ```bash
 docker run -it --rm \
     mysql:5.7.33 \
@@ -195,17 +203,21 @@ docker run -it --rm \
 ```bash
 python app.py
 ```
+
 or equivalently through Docker:
 ```bash
-docker run \
--p 5000:5000 \
--e ENGINE_STRING \
-wikinews app.py
+docker run 
+    -p 5000:5000 
+    -e ENGINE_STRING
+    --name app
+wikinews
 ```
+
+If no `ENGINE_STRING` is provided, the database will default to the one created locally at `sqlite:///data/entries.db`. 
 
 You should now be able to access the app at http://0.0.0.0:5000/ in your browser.
 
-# Testing
+## 4. Testing
 
 From within the Docker container, the following command should work to run unit tests when run from the root of the repository: 
 
