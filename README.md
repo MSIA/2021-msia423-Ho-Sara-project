@@ -68,7 +68,7 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 ```
 ├── README.md                         <- You are here
 ├── api
-│   ├── static/                       <- CSS, JS files that remain static
+│   ├── static/                       <- CSS files that remain static
 │   ├── templates/                    <- HTML that is templated and changes based on a set of inputs
 │   ├── boot.sh                       <- Start up script for launching app in Docker container.
 │   ├── Dockerfile                    <- Dockerfile for building image to run app 
@@ -106,99 +106,77 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 ├── requirements.txt                  <- Python package dependencies 
 ```
 
-## Sourcing the data
+## 1. Pre-requisites
+
+## Environmental Variables:
 
 Without an News API key, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment.
 `export NEWS_API_KEY=<MY_KEY_HERE>`
 Otherwise, you can skip loading new data. The rest of the commands will default to using existing data in local path `./data/sample`
 
-## Running the app
+## Docker builds:
 
-### 1. Initialize the database 
-
-### Load new data via API.
-
-Newly imported data can only be saved to `./data`.
-
-`python run.py load_new`
-
-### Set up local database
-
-To create database:
-```bash
-python run.py create_db
+Runs entrypoint `make` to allow using the Makefile to aquire data, run the algorithm, and ingest to RDS
+```
+docker build -f Dockerfile_make -t make_wikinews .
 ```
 
-By default, the database will be created locally at `sqlite:///data/entries.db`. 
-
-To ingest data into database:
-```bash
-python run.py ingest
+Runs the app; can also be used for deployment via ECS
 ```
-
-By default, the data ingested will be sourced from `./data/sample`
-
-### Set up database via engine
-
-To create database:
-```bash
-python run.py create_db \
---engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
-```
-
-To ingest data into database:
-```bash
-python run.py ingest \
---engine_string=mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${DATABASE_NAME}
-```
-
-### Load data into s3
-
-```bash
-python run.py load_s3
-```
-By default, `load_s3` will load the data from local path `./data/sample` into s3: 
-
-If you want to load the newly loaded daily data, specify `--local_path`: 
-```bash
-python run.py load_s3 --local_path ./data
-```
-
-### Set up database in Docker
-
-Build image
-```bash
 docker build -f app/Dockerfile -t wikinews .
 ```
 
-Load new data
+## 2. Pipeline
+
+At each point, intermediate data are saved to S3, so `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are required in addition to other ad-hoc environmental variables.
+
+## Load new data via API.
+
+```
+make data
+```
+or equivalently through Docker:
 ```
 docker run \
-  -e NEWS_API_KEY \
-  wikinews run.py load_new
+    --mount type=bind,source="$(pwd)",target=/app/ \
+    -e AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY \
+    -e NEWS_API_KEY \
+make_wikinews data
 ```
 
-Put new data into s3 from non-default `./data` (assuming new data has been loaded)
+## Run algorithm
+
+```
+make algorithm
+```
+or equivalently through Docker:
 ```
 docker run \
-  -e NEWS_API_KEY \
-  -e AWS_ACCESS_KEY_ID \
-  -e AWS_SECRET_ACCESS_KEY \
-  wikinews run.py load_3 --local_path ./data
+    --mount type=bind,source="$(pwd)",target=/app/ \
+    -e AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY \
+make_wikinews algorithm
 ```
 
-Create database at .db file.
-```bash
+## Ingest to database
+
+```
+make algorithm
+```
+or equivalently through Docker:
+```
 docker run \
-	wikinews run.py create_db
+    --mount type=bind,source="$(pwd)",target=/app/ \
+    -e AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY \
+    -e ENGINE_STRING \
+make_wikinews ingest
 ```
 
-Create database at remote MySQL db.
-```bash
-docker run \
-	wikinews run.py create_db \
-  --engine_string=${AWS_ENGINE_STRING}
-```
+If no `ENGINE_STRING` provided, the database will be created locally at `sqlite:///data/entries.db`. 
+
+## Access database [Optional]
 
 If using MySQL, access interface via docker,
 ```bash
@@ -207,38 +185,24 @@ docker run -it --rm \
     mysql \
     -h${MYSQL_HOST} \
     -u${MYSQL_USER} \
-    -p${MYSQL_PASSWORD}
+    -p${MYSQL_DB}
 ```
 
-### 2. Configure Flask app 
+## 3. Run the Flask app 
 
 `config/flaskconfig.py` holds the configurations for the Flask app.
-
-### 3. Run the Flask app 
-
-To run the Flask app, run: 
 
 ```bash
 python app.py
 ```
-
-You should now be able to access the app at http://0.0.0.0:5000/ in your browser.
-
-## Running the app in Docker 
-
-### 1. Build the image 
-
+or equivalently through Docker:
 ```bash
- docker build -f app/Dockerfile -t wikinews .
+docker run \
+-p 5000:5000 \
+-e ENGINE_STRING \
+wikinews app.py
 ```
 
-### 2. Run the container 
-
-To run the app, run from this directory: 
-
-```bash
-docker run -p 5000:5000 wikinews app.py
-```
 You should now be able to access the app at http://0.0.0.0:5000/ in your browser.
 
 # Testing
@@ -249,8 +213,7 @@ From within the Docker container, the following command should work to run unit 
 python -m pytest
 ``` 
 
-To run the tests through Docker, run: 
-
+or equivalently through Docker:
 ```bash
  docker run wikinews -m pytest
 ```
