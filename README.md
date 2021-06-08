@@ -101,6 +101,7 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 ├── Makefile                          <- Makefile for running pipeline to acquire data, apply algorithm, and ingest to db
 ├── run.py                            <- Simplifies the execution the src scripts  
 ├── requirements.txt                  <- Python package dependencies 
+├── sample.sh                         <- Script which allows pipeline to be run without APIs; see section 2.1
 ```
 
 ## 1. Pre-requisites
@@ -115,7 +116,7 @@ export AWS_SECRET_ACCESS_KEY=<MY_AWS_SECRET_ACCESS_KEY>
 export ENGINE_STRING=<host>://<user>:<password>@<endpoint>:<port>/<database>
 ```
 
- - Without a valid `NEWS_API_KEY`, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment. Otherwise, you can skip loading new data. The rest of the pipeline will default to using existing data in local path `./data/sample`.
+ - Without a valid `NEWS_API_KEY`, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment.
 
  - Without a valid `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, the data will still be saved locally according to the path(s) set in the Makefile, but they will not be saved to S3.
 
@@ -137,7 +138,7 @@ docker build -f app/Dockerfile -t wikinews .
 
 At each point, intermediate data are saved to S3, so `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are required in addition to other ad-hoc environmental variables.
 
-### 2.1 Load new data via API.
+### 2.1 Load new data via API
 
 ```bash
 make data
@@ -151,6 +152,32 @@ docker run \
     -e AWS_SECRET_ACCESS_KEY \
     -e NEWS_API_KEY \
 make_wikinews data
+```
+
+#### 2.1 ALTERNATIVE: use sample data
+
+Without a `NEWS_API_KEY`, you can still run the pipeline using the data in `./data/sample`. **Warning, this pretends that the data in `./data/sample` is today's data.**. Do not use this part for production - it will be misleading for the app user.
+
+To do this, skip step 2.1 and instead run:
+```
+./sample.sh
+```
+
+Then, load the data to S3. 
+```
+make s3_daily
+```
+
+If using docker, you will have to rebuild the image.
+```
+docker build -f Dockerfile_make -t make_wikinews .
+
+docker run \
+--mount type=bind,source="$(pwd)",target=/app/ \
+-e AWS_ACCESS_KEY_ID \
+-e AWS_SECRET_ACCESS_KEY \
+-e NEWS_API_KEY \
+make_wikinews s3_daily
 ```
 
 ### 2.2 Run algorithm
@@ -191,9 +218,9 @@ make_wikinews ingest
 docker run -it --rm \
     mysql:5.7.33 \
     mysql \
-    -h${MYSQL_HOST} \
-    -u${MYSQL_USER} \
-    -p${MYSQL_DB}
+    -h${host} \
+    -u${user} \
+    -p${database}
 ```
 
 ## 3. Run the Flask app 
