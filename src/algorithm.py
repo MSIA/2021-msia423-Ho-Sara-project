@@ -20,18 +20,16 @@ logger = logging.getLogger(__name__)
 logging.getLogger("utils").setLevel(logging.ERROR)
 
 
-# def sim_score(row):
-#     """Calculate the SequenceMatcher similarity score
+def text_to_vector(text):
+    word = re.compile(r"\w+")
+    words = word.findall(text)
+    return Counter(words)
 
-#     Args:
-#         row (array-like): containing two strings to compare
 
-#     Returns:
-#         (float): similarity score
-#     """
-#     return SequenceMatcher(None, row[0], row[1]).ratio()
+def get_cosine(x):
+    vec1 = text_to_vector(x[0])
+    vec2 = text_to_vector(x[1])
 
-def get_cosine(vec1, vec2):
     intersection = set(vec1.keys()) & set(vec2.keys())
     numerator = sum([vec1[x] * vec2[x] for x in intersection])
 
@@ -43,19 +41,6 @@ def get_cosine(vec1, vec2):
         return 0.0
     else:
         return float(numerator) / denominator
-
-
-def text_to_vector(text):
-    WORD = re.compile(r"\w+")
-    words = WORD.findall(text)
-    return Counter(words)
-
-
-def cos_pipeline(x):
-    vector1 = text_to_vector(x[0])
-    vector2 = text_to_vector(x[1])
-
-    return get_cosine(vector1, vector2)
 
 
 def remove_stopwords(df, args):
@@ -134,3 +119,8 @@ def filter_data(args):
     df = df.drop_duplicates(['news_id', 'title']).loc[df['predict']]
 
     return df
+
+
+def eval_(args):
+    args.input()
+
