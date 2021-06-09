@@ -1,17 +1,18 @@
 """Orchestration script
 
 runs an arg parser which allows for the following steps:
-load_news: run API
-load_wiki:
-filter:
-create_db
-join
-ingest
-s3
+load_news: run API for news data
+load_wiki: run API for wiki data
+join: prep data for filtering
+filter: remove irrelevant matches
+create_db: prep database for new data
+ingest: ingest database with new data
+s3: load any input into s3
 
 this script is designed to work with ./Makefile
 """
 
+import os
 import argparse
 import logging
 import logging.config
@@ -25,12 +26,46 @@ from src.load_wiki import load_wiki
 from src.algorithm import filter_data, join_data
 from src.s3 import upload
 
-from config.flaskconfig import ENGINE_STRING
-
 logging.config.fileConfig("config/logging/local.conf",
                           disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 logging.getLogger("s3fs").setLevel(logging.WARNING)
+
+
+def handle_input_path(input_path, s3_path=None):
+    """handle inputs for various steps in the arg parser"""
+
+    if s3_path is not None:
+        logger.info('Adding s3 path to input path')
+        input_path = 's3://' + s3_path + '/' + input_path
+
+    if input_path is not None:
+        try:
+            data = pd.read_csv(input_path)
+            logger.debug('read %i lines of data', len(data))
+            return data
+        except FileNotFoundError:
+            logger.error("File not found at path %s", input_path)
+        except pd.errors.EmptyDataError:
+            logger.error("No data")
+        except pd.errors.ParserError:
+            logger.error("Parse error")
+    return None
+
+
+def handle_engine_string(in_engine_string):
+    """handle engine strings for various steps in the arg parser"""
+
+    if in_engine_string is not None:
+        engine_string = args.engine_string
+        logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+    elif os.environ.get('ENGINE_STRING') is not None:
+        engine_string = os.environ.get('ENGINE_STRING')
+        logger.info(f'using env variable $ENGINE_STRING to connect to db')
+    else:
+        engine_string = 'sqlite:///data/entries.db'
+        logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+    return engine_string
 
 
 if __name__ == '__main__':
@@ -53,19 +88,12 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', default=None,
                         help='Path to save output CSV (default = None)')
 
-    parser.add_argument("--engine_string", default=ENGINE_STRING,
+    parser.add_argument("--engine_string",
                         help="connection URI for database")
     parser.add_argument("--s3_path",
                         help="s3 path")
 
     args = parser.parse_args()
-
-    if args.input is not None:
-        try:
-            data = pd.read_csv(args.input)
-        except FileNotFoundError:
-            logger.error("make sure input filepath is correct")
-            data = None
 
     if args.config is not None:
         with open(args.config, 'r') as conf_file:
@@ -76,12 +104,17 @@ if __name__ == '__main__':
             logger.error("yaml configuration file required for load_news()")
         else:
             output = load_news(conf,
-                            source_words=conf['source_words'])
+                               source_words=conf['source_words'])
+
+        if args.output is not None and args.s3_path is not None:
+            upload(args.output, args.s3_path)
+            logger.info("Output saved remotely to s3://%s", args.s3_path)
 
     elif args.step == 'load_wiki':
         if conf is None:
             logger.error("yaml configuration file required for load_wiki()")
         else:
+            data = handle_input_path(args.input)
             output = load_wiki(data,
                                query_conf=conf['wiki_query'],
                                content_conf=conf['wiki_content'],
@@ -91,31 +124,31 @@ if __name__ == '__main__':
                                stop_phrases=conf['stop_phrases'],
                                n_results=conf['n_results'])
 
-    elif args.step == 'create_db':
-        create_db(args.engine_string)
+        if args.output is not None and args.s3_path is not None:
+            upload(args.output, args.s3_path)
+            logger.info("Output saved remotely to s3://%s", args.s3_path)
 
     elif args.step == 'join':
-        if args.s3_path is not None:
-            logger.info('Using s3 path')
-            args.input1 = args.s3_path + '/' + args.input1
-            args.input2 = args.s3_path + '/' + args.input2
-
-        output = join_data(args.input1,
-                           args.input2)
+        wiki_df = handle_input_path(args.input1, args.s3_path)
+        news_df = handle_input_path(args.input2, args.s3_path)
+        output = join_data(wiki_df, news_df)
 
     elif args.step == 'filter':
-        if args.s3_path is not None:
-            logger.info('Using s3 path for filtering')
-            args.input = args.s3_path + '/' + args.input
+        if conf is None:
+            logger.error("yaml configuration file required for ingest()")
+        data = handle_input_path(args.input)
+        output = filter_data(data, conf)
 
-        output = filter_data(args)
+    elif args.step == 'create_db':
+        engine_string = handle_engine_string(args.engine_string)
+        create_db(engine_string)
 
     elif args.step == 'ingest':
-        if args.s3_path is not None:
-            logger.info('Using s3 path for ingesting')
-            args.input = args.s3_path + '/' + args.input
-
-        ingest(args)
+        if conf is None:
+            logger.error("yaml configuration file required for ingest()")
+        data = handle_input_path(args.input, args.s3_path)
+        engine_string = handle_engine_string(args.engine_string)
+        ingest(data, conf, engine_string)
 
     elif args.step == 's3':
         if args.input is not None:
@@ -127,7 +160,4 @@ if __name__ == '__main__':
 
     if args.output is not None:
         output.to_csv(args.output, index=False)
-        logger.info("Output saved to %s", args.output)
-
-        if args.s3_path is not None:
-            upload(args.output, args.s3_path)
+        logger.info("Output saved locally to %s", args.output)
