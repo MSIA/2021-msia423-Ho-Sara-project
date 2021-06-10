@@ -72,33 +72,7 @@ def test_join_data():
     pd.testing.assert_frame_equal(joined_df_test, joined_df_true)
 
 
-# def filter_data(data, conf):
-#     """Orchestration function; clean and filter based on similarity score
-
-#     Args:
-#         data (obj `pandas.DataFrame`): output from join_data()
-#         conf (dict): yaml-style config with keys:
-#             'processed_features': to be processed and used for similarity score
-#             'threshhold': similarity score cutoff to determine relevancy
-
-#     Returns:
-#         (obj `pandas.DataFrame`): data with irrelevant entities removed
-#     """
-
-#     data = remove_stopwords(data, conf)
-#     logger.info('removed stop words')
-
-#     data['sim'] = data[conf['processed_features']].apply(get_cosine, axis=1)
-#     logger.info("mean similarity score: %f", data['sim'].mean())
-
-#     data['predict'] = data['sim'] > conf['threshhold']
-#     data = data.drop_duplicates(['news_id', 'title']).loc[data['predict']]
-
-#     return data
-
-
 def test_text_to_vector():
-
     in_text = """Prince Harry and Meghan Markle announce birth of new baby - Prince Harry and Meghan Markle announced the birth of their second child on Sunday. The baby's name, Lilibet"""
 
     test_out = text_to_vector(in_text)
@@ -113,7 +87,6 @@ def test_text_to_vector():
 
 
 def test_get_cosine():
-
     in1 = """GMC just unveiled its $100,000 Hummer EV SUV with 830-horsepower
      that will hit streets in 2023 (GM). The Hummer EV pickup won't be the
      only "supertruck" in GMC's fleet after the automaker unveiled its Hummer
