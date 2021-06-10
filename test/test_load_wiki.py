@@ -29,7 +29,6 @@ def test_wiki_special_truncate():
     test_out = wiki_special_truncate(sample_string)
 
     true_out = """
-    The fight ended in a majority draw. In the subsequent rematch, which was a professional bout, Paul lost to KSI by split decision.\nPaul has been involved in several controversies, most notably in relation to a trip to Japan in December 2017, during which he visited the Aokigahara "suicide forest", filmed a suicide victim and uploaded the footage to his YouTube channel.\n\n\n== Early life and education 
-    """
+    The fight ended in a majority draw. In the subsequent rematch, which was a professional bout, Paul lost to KSI by split decision.\nPaul has been involved in several controversies, most notably in relation to a trip to Japan in December 2017, during which he visited the Aokigahara "suicide forest", filmed a suicide victim and uploaded the footage to his YouTube channel.\n\n\n"""
 
     assert true_out == test_out
