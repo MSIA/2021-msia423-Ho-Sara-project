@@ -71,9 +71,12 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 ├── config                            <- Directory for configuration files 
 │   ├── local/                        <- Directory for keeping environment variables and other local configurations that *do not sync** to Github 
 │   ├── logging/                      <- Configuration of python loggers
+│   ├── yaml                          <- YAML configurations for scripts in /src
+│   │   ├── algorithm.yaml
+│   │   ├── db.yaml
+│   │   ├── load_news.yaml
+│   │   ├── load_wiki.yaml
 │   ├── flaskconfig.py                <- Configurations for Flask API 
-│   ├── algorithm.yaml                <- Configurations for src/algorithm.py 
-│   ├── load.yaml                     <- Configurations for src/load.py 
 │
 ├── data                              
 │   ├── sample/                       <- Folder that contains sample data (static; syncs to GitHub)
@@ -95,7 +98,11 @@ Ideally the deployed app would track whether a user clicks on the drop-downs to 
 │   ├── s3.py                         <- Function to load local files to s3
 │
 ├── test/                             <- Files necessary for running tests
+│   ├── test_algorithm.py
 │   ├── test_db.py
+│   ├── test_load_news.py
+│   ├── test_load_wiki.py
+│
 ├── app.py                            <- Flask wrapper for displaying the filtered data 
 ├── Dockerfile_make                   <- Dockerfile for running Makefile pipeline
 ├── Makefile                          <- Makefile for running pipeline to acquire data, apply algorithm, and ingest to db
@@ -113,14 +120,17 @@ Here is the recommended setup:
 export NEWS_API_KEY=<MY_NEWS_API_KEY>
 export AWS_ACCESS_KEY_ID=<MY_AWS_ACCESS_KEY_ID>
 export AWS_SECRET_ACCESS_KEY=<MY_AWS_SECRET_ACCESS_KEY>
+export S3_BUCKET=<MY_S3_BUCKET>
 export ENGINE_STRING=<host>://<user>:<password>@<endpoint>:<port>/<database>
 ```
 
  - Without a valid `NEWS_API_KEY`, `load_new` commands will not run. You can generate one for free at https://newsapi.org/ and add it to the environment.
 
- - Without a valid `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, the data will still be saved locally according to the path(s) set in the Makefile, but they will not be saved to S3.
+ - Without a valid `S3_BUCKET`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, the data will still be saved locally according to the path(s) set in the Makefile, but they will not be saved to S3.
 
  - Without a valid `ENGINE_STRING`, a database will be created at `sqlite:///data/entries.db` and used throughout the pipeline.
+
+ - Without obtaining the current date using `export DATE=$(date +"%m-%d-%y")`, the rest of the pipeline will use `06-08-21`, which is the date of the data in `data/sample`.
 
 ### 1.2 Docker builds:
 
@@ -150,34 +160,9 @@ docker run \
     --mount type=bind,source="$(pwd)",target=/app/ \
     -e AWS_ACCESS_KEY_ID \
     -e AWS_SECRET_ACCESS_KEY \
+    -e S3_BUCKET \
     -e NEWS_API_KEY \
 make_wikinews data
-```
-
-#### 2.1 ALTERNATIVE: use sample data
-
-Without a `NEWS_API_KEY`, you can still run the pipeline using the data in `./data/sample`. **Warning, this pretends that the data in `./data/sample` is today's data.**. Do not use this part for production - it will be misleading for the app user.
-
-To do this, skip step 2.1 and instead run:
-```
-./sample.sh
-```
-
-Then, load the data to S3. 
-```
-make s3_daily
-```
-
-If using docker, you will have to rebuild the image.
-```
-docker build -f Dockerfile_make -t make_wikinews .
-
-docker run \
---mount type=bind,source="$(pwd)",target=/app/ \
--e AWS_ACCESS_KEY_ID \
--e AWS_SECRET_ACCESS_KEY \
--e NEWS_API_KEY \
-make_wikinews s3_daily
 ```
 
 ### 2.2 Run algorithm
@@ -192,6 +177,7 @@ docker run \
     --mount type=bind,source="$(pwd)",target=/app/ \
     -e AWS_ACCESS_KEY_ID \
     -e AWS_SECRET_ACCESS_KEY \
+    -e S3_BUCKET \
 make_wikinews algorithm
 ```
 
@@ -209,18 +195,28 @@ docker run \
     --mount type=bind,source="$(pwd)",target=/app/ \
     -e AWS_ACCESS_KEY_ID \
     -e AWS_SECRET_ACCESS_KEY \
+    -e S3_BUCKET \
     -e ENGINE_STRING \
-make_wikinews ingest
+make_wikinews database
 ```
 
-[Optional]. If using MySQL, access interface via Docker:
+[Optional]. If using MySQL, access SQL commands via Docker:
 ```bash
 docker run -it --rm \
     mysql:5.7.33 \
     mysql \
-    -h${host} \
-    -u${user} \
-    -p${database}
+    -h$<host> \
+    -u$<user> \
+    -p$<database>
+```
+
+If using a database which does not support utf8 characters (which may show up especially in the Wikipedia data), you can configure it this way. It is recommended that this be done when the database is NOT in use through the app.
+
+```sql
+ALTER DATABASE `<database>` DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+
+ALTER TABLE wiki CONVERT TO CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+ALTER TABLE news CONVERT TO CHARACTER SET utf8 COLLATE utf8_unicode_ci;
 ```
 
 ## 3. Run the Flask app 
