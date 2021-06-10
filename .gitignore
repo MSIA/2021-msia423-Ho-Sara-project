@@ -2,15 +2,17 @@ __pycache__/
 *.pyc
 *.py[cod]
 *.class
+*.pptx
+
 .DS_Store
 .idea/
 .log
 .ipynb_checkpoints/
 config.py
 
-data/*.csv
-data/*.db
-!data/sample/
+data/*
+!data/sample/06-08-21-news-entries.csv
+!data/sample/06-08-21-wiki-entries.csv
 data/daily/*.csv
 config/local
 *!.gitkeep
