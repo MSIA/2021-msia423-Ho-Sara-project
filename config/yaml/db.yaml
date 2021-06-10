@@ -1,0 +1,35 @@
+
+db:
+  author: Sara Ho
+  version: AA1
+  description: database configuration
+
+wiki:
+  raw_columns:
+    - date
+    - news_id
+    - title
+    - wiki
+    - wiki_url
+    - wiki_image
+
+news:
+  raw_columns:
+    - date
+    - news_id
+    - headline
+    - news
+    - news_image
+    - news_url
+
+normalize:
+  primary_key: title
+  primary_keys:
+    - news_id
+    - entity
+    - title
+
+render:
+  raw_column: news
+  new_column: news_dis
+  entity_column: entity

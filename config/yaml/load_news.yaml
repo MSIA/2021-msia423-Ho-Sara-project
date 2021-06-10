@@ -1,0 +1,23 @@
+
+load:
+  author: Sara Ho
+  version: AA1
+  description: loads data from news
+  news_source: https://newsapi.org/
+
+timeout: 300
+
+url: https://newsapi.org/v2/top-headlines?
+params:
+  country: us
+  pagesize: 100
+
+source_words:
+  - USA TODAY
+  - POLITICO
+  - TheHill
+  - Fox News
+  - Yahoo Sports
+  - Reuters
+  - ESPN
+  - NBC Sports

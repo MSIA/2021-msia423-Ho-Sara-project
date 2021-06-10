@@ -1,0 +1,13 @@
+
+algorithm:
+  author: Sara Ho
+  version: AA1
+  description: runs a similarity score-based filtering algorithm
+  
+threshhold: 0.25
+raw_features:
+  - wiki
+  - news
+processed_features:
+  - wiki_process
+  - news_process

@@ -1,0 +1,42 @@
+
+load_wiki:
+  author: Sara Ho
+  version: AA1
+  description: loads wiki apis and matched to news articles
+  wiki_source: https://www.mediawiki.org/wiki/API:Main_page
+  news_source: https://newsapi.org/
+
+timeout: 300
+
+n_results: 1
+wiki_content:
+  url: https://en.wikipedia.org/w/api.php
+  params:
+    action: query
+    format: json
+    prop: extracts|pageimages|info|categories
+    inprop: url
+    exsentences: 10
+    explaintext: 1
+    pithumbsize: 100
+wiki_query:
+  url: https://en.wikipedia.org/w/api.php
+  params:
+    action: query
+    format: json
+    list: search
+
+stop_categories:
+  - disambiguation
+  - given name
+  - surnames
+stop_phrases:
+  - may refer to
+  - can refer to
+spacy_model: en_core_web_sm
+stop_spacy:
+  - PERSON
+  - FAC
+  - ORG
+  - NORP
+  - PRODUCT

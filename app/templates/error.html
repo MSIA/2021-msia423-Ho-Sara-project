@@ -1,18 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <link href="static/basic.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <link rel="shortcut icon" type="image/x-icon" href="static/planet-earth.svg"/>
+  <link href="static/style.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+      integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
 </head>
 
-<body>
-    <h3>
-         <a href = "{{ url_for('index') }}">Wiki News Recommender</a>
-    </h3>
 
-    <div class="alert alert-danger" role="alert">
-  <p class="alert-link">We're sorry. There was a problem accessing the database. Please try back later. </p>
-    </div>
+<body>
+  <div id="head">
+    <img src="static/planet-earth.svg" style="width:70px; padding:10px;">
+    <h1><a href="{{ url_for('index') }}">WikiNews</a></h1>
+    <p style="color:#9EADA2"><a href="{{ url_for('about') }}">About</a></p>
+  </div>
+
+  <div class="alert alert-danger" role="alert">
+    <p class="alert-link">We're sorry. There was a problem accessing the database. Please try back later. </p>
+  </div>
 
 </body>
+
 </html>

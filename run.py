@@ -1,136 +1,167 @@
+"""Orchestration script
+
+runs an arg parser which allows for the following steps:
+load_news: run API for news data
+load_wiki: run API for wiki data
+join: prep data for filtering
+filter: remove irrelevant matches
+create_db: prep database for new data
+ingest: ingest database with new data
+s3: load any input into s3
+
+this script is designed to work with ./Makefile
+"""
+
 import os
 import argparse
-from datetime import datetime
-from datetime import date
-import unicodedata
 import logging
 import logging.config
 
+import yaml
 import pandas as pd
-import boto3
-import botocore
 
-from src.load_data import load_wiki, load_news
-from src.add_entries import WikiNewsManager, create_db
-from config.flaskconfig import SQLALCHEMY_DATABASE_URI
-
-NEWS_API_KEY = os.environ.get('NEWS_API_KEY')
-
-logging.basicConfig(format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s', level=logging.DEBUG)
-logging.getLogger("botocore").setLevel(logging.ERROR)
-logging.getLogger("s3transfer").setLevel(logging.ERROR)
-logging.getLogger("urllib3").setLevel(logging.ERROR)
-logging.getLogger("boto3").setLevel(logging.ERROR)
-logging.getLogger("asyncio").setLevel(logging.ERROR)
-logging.getLogger("aiobotocore").setLevel(logging.ERROR)
-logging.getLogger("s3fs").setLevel(logging.ERROR)
+from src.db import create_db, ingest
+from src.load_news import load_news
+from src.load_wiki import load_wiki
+from src.algorithm import filter_data, join_data, predict_data
+from src.s3 import upload
 
 logging.config.fileConfig("config/logging/local.conf",
                           disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
+logging.getLogger("s3fs").setLevel(logging.WARNING)
 
 
-def upload_files_to_s3(local_path, s3path):
-    """ Upload local files to s3 """
+def handle_input_path(input_path, s3_path=None):
+    """handle inputs for various steps in the arg parser"""
 
-    s3bucket = s3path.replace('s3://', '')
+    if s3_path is not None:
+        logger.info('Adding s3 path to input path')
+        input_path = 's3://' + s3_path + '/' + input_path
 
-    s3 = boto3.resource("s3")
-    bucket = s3.Bucket(s3bucket)
-
-    files = os.listdir(local_path)
-    files = [file for file in files if '.csv' in file]
-    for file in files:
+    if input_path is not None:
         try:
-            bucket.upload_file(f'{local_path}/{file}', f'raw/{file}')
-        except botocore.exceptions.NoCredentialsError:
-            logger.error('Please provide AWS credentials via AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env variables.')
-        else:
-            logger.info('Data uploaded to %s', {s3path} + '/raw/' + {file})
+            data = pd.read_csv(input_path)
+            logger.debug('read %i lines of data', len(data))
+            return data
+        except FileNotFoundError:
+            logger.error("File not found at path %s", input_path)
+        except pd.errors.EmptyDataError:
+            logger.error("No data")
+        except pd.errors.ParserError:
+            logger.error("Parse error")
+    return None
+
+
+def handle_engine_string(in_engine_string):
+    """handle engine strings for various steps in the arg parser"""
+
+    if in_engine_string is not None:
+        engine_string = args.engine_string
+        logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+    elif os.environ.get('ENGINE_STRING') is not None:
+        engine_string = os.environ.get('ENGINE_STRING')
+        logger.info(f'using env variable $ENGINE_STRING to connect to db')
+    else:
+        engine_string = 'sqlite:///data/entries.db'
+        logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+    return engine_string
 
 
 if __name__ == '__main__':
 
-    # Add parsers for both creating a database and adding entries to it
-    parser = argparse.ArgumentParser(description="Create and/or add data to database")
-    subparsers = parser.add_subparsers(dest='subparser_name')
+    parser = argparse.ArgumentParser(
+        description="Create and/or add data to database")
+    parser.add_argument('step',
+                        help='Which step to run',
+                        choices=['load_news', 'load_wiki', 'filter',
+                                 'create_db', 'join', 'predict', 'ingest', 's3'])
 
-    # Sub-parser for creating a database
-    sb_create = subparsers.add_parser('create_db', description="Create database")
-    sb_create.add_argument("--engine_string", default='sqlite:///data/entries.db',
-                           help="SQLAlchemy connection URI for database")
+    parser.add_argument('--input', '-i', default=None,
+                        help='Path to input data')
+    parser.add_argument('--input1', default=None,
+                        help='Path to input data')
+    parser.add_argument('--input2', default=None,
+                        help='Path to input data')
 
-    # Sub-parser for ingesting new data
-    sb_ingest = subparsers.add_parser('ingest', description="Add data to database")
-    sb_ingest.add_argument("--engine_string", default='sqlite:///data/entries.db',
-                           help="SQLAlchemy connection URI for database")
-    sb_ingest.add_argument("--local_path", default='./data/sample',
-                           help="Filepath for local data for database to ingest")
+    parser.add_argument('--config', help='Path to configuration file')
+    parser.add_argument('--output', '-o', default=None,
+                        help='Path to save output CSV (default = None)')
 
-    # Sub-parser to load new data into local ./data folder
-    sb_load = subparsers.add_parser('load_new', description="Query new data from APIs and save locally")
-
-    # Sub-parser to load data from local path into s3
-    sb_s3 = subparsers.add_parser('load_s3', description="Describe where local data is")
-    sb_s3.add_argument('--s3path', default='s3://2021-msia-423-ho-sara',
-                       help="If used, will load data to s3")
-    sb_s3.add_argument('--local_path', default='./data/sample',
-                       help="Where to load data to in S3")
+    parser.add_argument("--engine_string",
+                        help="connection URI for database")
+    parser.add_argument("--s3_path",
+                        help="s3 path")
 
     args = parser.parse_args()
-    sp_used = args.subparser_name
 
-    if sp_used == 'create_db':
-        create_db(args.engine_string)
+    if args.config is not None:
+        with open(args.config, 'r') as conf_file:
+            conf = yaml.load(conf_file, Loader=yaml.FullLoader)
 
-    elif sp_used == 'ingest':
-        tm = WikiNewsManager(engine_string=args.engine_string)
+    if args.step == 'load_news':
+        if conf is None:
+            logger.error("yaml configuration file required for load_news()")
+        else:
+            output = load_news(conf,
+                               source_words=conf['source_words'])
 
-        for file in os.listdir(args.local_path):
+        if args.output is not None and args.s3_path is not None:
+            upload(args.output, args.s3_path)
+            logger.info("Output saved remotely to s3://%s", args.s3_path)
 
-            # load wikipedia files using add_wiki()
-            if 'wiki-entries' in file:
-                wiki_table = pd.read_csv(f'{args.local_path}/{file}')
-                wiki_table = wiki_table.fillna('')
+    elif args.step == 'load_wiki':
+        if conf is None:
+            logger.error("yaml configuration file required for load_wiki()")
+        else:
+            data = handle_input_path(args.input)
+            output = load_wiki(data,
+                               query_conf=conf['wiki_query'],
+                               content_conf=conf['wiki_content'],
+                               stop_spacy=conf['stop_spacy'],
+                               spacy_model=conf['spacy_model'],
+                               stop_categories=conf['stop_categories'],
+                               stop_phrases=conf['stop_phrases'],
+                               n_results=conf['n_results'])
 
-                def remove_accents(s):
-                    return unicodedata.normalize('NFD', s)
+        if args.output is not None and args.s3_path is not None:
+            upload(args.output, args.s3_path)
+            logger.info("Output saved remotely to s3://%s", args.s3_path)
 
-                wiki_table['title'] = wiki_table['title'].apply(remove_accents)
-                # when accents are removed, the primary keys may no longer be unique
-                wiki_table = wiki_table.drop_duplicates(['news_id', 'entity', 'title'])
+    elif args.step == 'join':
+        wiki_df = handle_input_path(args.input1, args.s3_path)
+        news_df = handle_input_path(args.input2, args.s3_path)
+        output = join_data(wiki_df, news_df)
 
-                file_date = ('-').join(file.split('-')[0:3])
-                file_date = datetime.strptime(file_date, '%b-%d-%Y')
+    elif args.step == 'predict':
+        if conf is None:
+            logger.error("yaml configuration file required for predict()")
+        data = handle_input_path(args.input)
+        output = predict_data(data, conf)
 
-                for _, row in wiki_table.iterrows():
-                    news_id, entity, label, title, category, revised, url, wiki, image = row
-                    tm.add_wiki(file_date, news_id, entity, label,
-                                title, category, revised,
-                                url, wiki, image)
-                logger.info(f"data in {file} added to 'wiki' table")
+    elif args.step == 'filter':
+        data = handle_input_path(args.input)
+        output = filter_data(data)
 
-            # load news files using add_news()
-            elif 'news-entries' in file:
-                news_table = pd.read_csv(f'{args.local_path}/{file}')
-                news_table = news_table.fillna('')
-                file_date = ('-').join(file.split('-')[0:3])
-                file_date = datetime.strptime(file_date, '%b-%d-%Y')
+    elif args.step == 'create_db':
+        engine_string = handle_engine_string(args.engine_string)
+        create_db(engine_string)
 
-                for _, row in news_table.iterrows():
-                    news_id, news = row
-                    tm.add_news(file_date, news_id, news)
-                logger.info(f"data in {file} added to 'news' table")
+    elif args.step == 'ingest':
+        if conf is None:
+            logger.error("yaml configuration file required for ingest()")
+        data = handle_input_path(args.input)
+        engine_string = handle_engine_string(args.engine_string)
+        ingest(data, conf, engine_string)
 
-            tm.close()
+    elif args.step == 's3':
+        if args.input is not None:
+            upload(args.input, args.s3_path)
+        if args.input1 is not None:
+            upload(args.input1, args.s3_path)
+        if args.input2 is not None:
+            upload(args.input2, args.s3_path)
 
-    elif sp_used == 'load_new':
-        # by default, this will save new csv files into ./data
-        news = load_news(NEWS_API_KEY)
-        load_wiki(news)
-
-    elif sp_used == 'load_s3':
-        upload_files_to_s3(args.local_path, args.s3path)
-
-    else:
-        parser.print_help()
+    if args.output is not None:
+        output.to_csv(args.output, index=False)
+        logger.info("Output saved locally to %s", args.output)

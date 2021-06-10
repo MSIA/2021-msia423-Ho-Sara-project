@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 *.py[cod]
 *.class
+*.pptx
+
 .DS_Store
 .idea/
 .log
@@ -9,7 +11,10 @@ __pycache__/
 config.py
 
 data/*
-!data/sample/
-!data/external/
+!data/sample/06-08-21-news-entries.csv
+!data/sample/06-08-21-wiki-entries.csv
+data/daily/*.csv
 config/local
-!.gitkeep
+*!.gitkeep
+copilot*
+cron.sh
