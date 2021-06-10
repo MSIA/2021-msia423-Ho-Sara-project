@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src")
 from load_news import create_id_col, remove_stopwords
 
 
-def test_create_id_col(data, id_col):
+def test_create_id_col():
     in_values = [['Sony announces WF-1000XM4 noise-canceling earbuds with LDAC and IPX4 water resistance -  The new WF-1000XM4 earbuds improve on Sony’s last noise-canceling earbuds with longer battery life, IPX4 water resistance, and even better sound with support for LDAC.'],
        ["Pelosi urges Democrats to continue voting rights push, despite Manchin -  After Manchin infuriated Democrats by saying he would not support the party's sweeping voting rights bill, the speaker implored the party not to shift focus."],
        ['Man Slaps Macron During Visit to Southern France - The  Two people were arrested after a man slapped the French president as he was approaching a small crowd, prompting condemnation of the attack across the political spectrum.'],
@@ -40,7 +40,7 @@ def test_create_id_col(data, id_col):
        [8,
         "Khloé Kardashian calls Kanye West her 'brother for life' amid Kim divorce -  Khloé Kardashian gave fans plenty to keep up with in her latest post wishing Kanye West a happy birthday."],
        [9, 'Best Moments From Clippers vs Jazz Season Series! - NBA']]
-    out_columns = ['news_id', 'id']
+    out_columns = ['news_id', 'news']
     true_out = pd.DataFrame(out_values, columns = out_columns)
     
     pd.testing.assert_frame_equal(test_out, true_out)

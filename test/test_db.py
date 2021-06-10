@@ -26,6 +26,25 @@ def test_render_text():
     assert test_out == true_out
 
 
+def test_render_text():
+    sample_string = """Bill Ackman's Pershing Square nears biggest-ever SPAC deal
+        with Universal Music, source says - Billionaire investor Bill Ackman
+        is nearing a $40 billion deal to take Universal Music public,
+        the largest SPAC deal ever, a source said.
+        """
+
+    test_out = render_text(sample_string,
+                           ['Bill Ackman', 'Pershing Square',
+                            'Universal Music', 'Universal Music'])
+
+    true_out = """<span class="highlight">Bill Ackman</span>\'s <span class="highlight">Pershing Square</span> nears biggest-ever SPAC deal
+        with <span class="highlight"><span class="highlight">Universal Music</span></span>, source says - Billionaire investor <span class="highlight">Bill Ackman</span>
+        is nearing a $40 billion deal to take <span class="highlight"><span class="highlight">Universal Music</span></span> public,
+        the largest SPAC deal ever, a source said.
+        """
+    assert test_out == true_out
+
+
 def test_render_news_col():
 
     args = {'raw_column': 'news',
