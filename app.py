@@ -1,5 +1,10 @@
 """Web app serving filtered news and wiki matches
 
+@app.route('/')
+def index(): returns main homepage with data queried from database
+
+@app.route('/about')
+def about(): returns about homepage with static information
 """
 
 import traceback
@@ -9,9 +14,8 @@ import sqlalchemy
 from flask import Flask
 from flask import render_template
 
-# Initialize the database session
 from src.db import Wiki, News, WikiNewsManager
-from config.flaskconfig import ENGINE_STRING
+from config.db_config import ENGINE_STRING
 
 # Initialize the Flask application
 app = Flask(__name__,
@@ -19,8 +23,7 @@ app = Flask(__name__,
             static_folder="app/static")
 
 # Configure flask app from flask_config.py
-app.config.from_pyfile('config/flaskconfig.py')
-
+app.config.from_pyfile('config/flask_config.py')
 logging.config.fileConfig(app.config["LOGGING_CONFIG"])
 logger = logging.getLogger(app.config["APP_NAME"])
 
@@ -55,7 +58,9 @@ def index():
                                date=date,
                                wiki_entities=wiki_entities,
                                news_entities=news_entities)
-    except sqlalchemy.exc.InvalidRequestError:
+
+    # should handle *any* exceptions to avoid front-end errors in deployed app
+    except:
         logger.debug("session.rollback() invoked")
         wn_session.rollback()
 

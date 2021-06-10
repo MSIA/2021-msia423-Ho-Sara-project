@@ -23,7 +23,7 @@ import pandas as pd
 from src.db import create_db, ingest
 from src.load_news import load_news
 from src.load_wiki import load_wiki
-from src.algorithm import filter_data, join_data
+from src.algorithm import filter_data, join_data, predict_data
 from src.s3 import upload
 
 logging.config.fileConfig("config/logging/local.conf",
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('step',
                         help='Which step to run',
                         choices=['load_news', 'load_wiki', 'filter',
-                                 'create_db', 'join', 'ingest', 's3'])
+                                 'create_db', 'join', 'predict', 'ingest', 's3'])
 
     parser.add_argument('--input', '-i', default=None,
                         help='Path to input data')
@@ -133,11 +133,15 @@ if __name__ == '__main__':
         news_df = handle_input_path(args.input2, args.s3_path)
         output = join_data(wiki_df, news_df)
 
-    elif args.step == 'filter':
+    elif args.step == 'predict':
         if conf is None:
-            logger.error("yaml configuration file required for ingest()")
+            logger.error("yaml configuration file required for predict()")
         data = handle_input_path(args.input)
-        output = filter_data(data, conf)
+        output = predict_data(data, conf)
+
+    elif args.step == 'filter':
+        data = handle_input_path(args.input)
+        output = filter_data(data)
 
     elif args.step == 'create_db':
         engine_string = handle_engine_string(args.engine_string)
@@ -146,7 +150,7 @@ if __name__ == '__main__':
     elif args.step == 'ingest':
         if conf is None:
             logger.error("yaml configuration file required for ingest()")
-        data = handle_input_path(args.input, args.s3_path)
+        data = handle_input_path(args.input)
         engine_string = handle_engine_string(args.engine_string)
         ingest(data, conf, engine_string)
 
