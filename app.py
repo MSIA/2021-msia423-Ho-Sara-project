@@ -10,7 +10,6 @@ def about(): returns about homepage with static information
 import traceback
 import logging.config
 
-import sqlalchemy
 from flask import Flask
 from flask import render_template
 

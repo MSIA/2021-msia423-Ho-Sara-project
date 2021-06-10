@@ -41,9 +41,9 @@ def handle_input_path(input_path, s3_path=None):
 
     if input_path is not None:
         try:
-            data = pd.read_csv(input_path)
-            logger.debug('read %i lines of data', len(data))
-            return data
+            input_data = pd.read_csv(input_path)
+            logger.debug('read %i lines of data', len(input_data))
+            return input_data
         except FileNotFoundError:
             logger.error("File not found at path %s", input_path)
         except pd.errors.EmptyDataError:
@@ -58,13 +58,13 @@ def handle_engine_string(in_engine_string):
 
     if in_engine_string is not None:
         engine_string = args.engine_string
-        logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+        logger.info('using filepath sqlite:///data/entries.db as engine string')
     elif os.environ.get('ENGINE_STRING') is not None:
         engine_string = os.environ.get('ENGINE_STRING')
-        logger.info(f'using env variable $ENGINE_STRING to connect to db')
+        logger.info('using env variable $ENGINE_STRING to connect to db')
     else:
         engine_string = 'sqlite:///data/entries.db'
-        logger.info(f'using filepath sqlite:///data/entries.db as engine string')
+        logger.info('using filepath sqlite:///data/entries.db as engine string')
     return engine_string
 
 
