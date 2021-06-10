@@ -156,6 +156,7 @@ def entities2wiki(entities, query_conf, content_conf,
 
     return pd.DataFrame(all_data)
 
+
 def wiki_special_truncate(text):
     """'==' denotes a special section break. Truncate the Wikipedia content here"""
 

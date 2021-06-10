@@ -19,13 +19,11 @@ logging.getLogger("s3fs").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
-def upload(local_file, s3_path):
+def upload(local_file, s3_bucket):
     """ Upload local files to s3 """
 
-    s3bucket = s3_path.replace('s3://', '')
-
     s3 = boto3.resource("s3")
-    bucket = s3.Bucket(s3bucket)
+    bucket = s3.Bucket(s3_bucket)
 
     try:
         bucket.upload_file(f'{local_file}', f'{local_file}')

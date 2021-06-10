@@ -76,8 +76,8 @@ def create_id_col(data, id_col):
         logger.error("'%s' already in columns; won't override", id_col)
         return data
 
-    data.reset_index(inplace=True)
-    data.rename(columns={'index': id_col}, inplace=True)
+    data = data.reset_index()
+    data = data.rename(columns={'index': id_col})
     return data
 
 
@@ -87,7 +87,6 @@ def remove_stopwords(text, stopwords):
     for word in stopwords:
         text = text.replace(word, '')
     return text
-
 
 
 def news_top(conf, timeout=300):

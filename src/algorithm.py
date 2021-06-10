@@ -7,7 +7,6 @@ helper functions:
     text_to_vector(text)
     get_cosine(x)
     remove_stopwords(data, args)
-
 """
 
 from datetime import date
@@ -17,15 +16,13 @@ import re
 from collections import Counter
 
 import pandas as pd
-
 from nltk.corpus import stopwords
 
 logger = logging.getLogger(__name__)
-
 logging.getLogger("utils").setLevel(logging.ERROR)
 
 
-def join_data(news_path, wiki_path):
+def join_data(news_df, wiki_df):
     """Join news file with wiki file
 
     Args:
@@ -36,20 +33,17 @@ def join_data(news_path, wiki_path):
         (obj `pandas.DataFrame`): joined dataframe
     """
 
-    wikidf = pd.read_csv(wiki_path)
-    wikidf.drop_duplicates(['title', 'news_id'])
-    wikidf.reset_index(inplace=True)
-    wikidf.rename(columns={'index': 'wiki_id'}, inplace=True)
+    wiki_df = wiki_df.drop_duplicates(['title', 'news_id'])
+    wiki_df = wiki_df.reset_index()
+    wiki_df = wiki_df.rename(columns={'index': 'wiki_id'})
 
-    newsdf = pd.read_csv(news_path)
-
-    joined = wikidf.merge(newsdf, on=['news_id'])
+    joined = wiki_df.merge(news_df, on=['news_id'])
     joined['date'] = date.today().strftime("%b-%d-%Y")
     return joined
 
 
-def filter_data(data, conf):
-    """Orchestration function; clean and filter based on similarity score
+def predict_data(data, conf):
+    """Create similarity score and prediction
 
     Args:
         data (obj `pandas.DataFrame`): output from join_data()
@@ -58,18 +52,31 @@ def filter_data(data, conf):
             'threshhold': similarity score cutoff to determine relevancy
 
     Returns:
-        (obj `pandas.DataFrame`): data with irrelevant entities removed
+        (obj `pandas.DataFrame`): data with similarity score 'sim' and prediction column 'predict'
     """
 
     data = remove_stopwords(data, conf)
     logger.info('removed stop words')
 
     data['sim'] = data[conf['processed_features']].apply(get_cosine, axis=1)
-    logger.info("mean similarity score: %f", data['sm_sim'].mean())
+    logger.info("mean similarity score: %f", data['sim'].mean())
 
     data['predict'] = data['sim'] > conf['threshhold']
-    data = data.drop_duplicates(['news_id', 'title']).loc[data['predict']]
 
+    return data
+
+
+def filter_data(data):
+    """Clean and filter based on similarity score
+
+    Args:
+        data (obj `pandas.DataFrame`): output from predict_data()
+
+    Returns:
+        (obj `pandas.DataFrame`): data with irrelevant entities removed
+    """
+
+    data = data.drop_duplicates(['news_id', 'title']).loc[data['predict']]
     return data
 
 

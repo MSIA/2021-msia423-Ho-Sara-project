@@ -1,5 +1,26 @@
 """Module containing functions to set up and ingest data to database
 
+Classes which set up database:
+Wiki()
+News()
+WikiNewsManager()
+
+Orchestration function to set up database:
+create_db()
+
+Helper function for create_db():
+delete_if_exists()
+
+Functions to ingest each table:
+ingest_wiki()
+ingest_news()
+
+Orchestration function to ingest all updates():
+ingest()
+
+Helper functions to render text for eventual html display:
+render_text()
+render_text_news_col()
 """
 
 from datetime import datetime
@@ -120,7 +141,7 @@ class WikiNewsManager:
                      news_id)
 
 
-def delete_ifexists(engine_string, table_name) -> None:
+def delete_if_exists(engine_string, table_name) -> None:
     """Deletes rows in table to make way for new daily data
 
     Args:
@@ -138,7 +159,7 @@ def delete_ifexists(engine_string, table_name) -> None:
     inspector = sqlalchemy.inspect(engine)
     if table_name in inspector.get_table_names():
         try:
-            logger.debug('Try deleting rows from table %s', {table_name})
+            logger.debug('Try deleting rows from table %s', table_name)
             table = Table(table_name, metadata, autoload_with=engine)
             session.query(table).delete(synchronize_session=False)
             session.commit()
@@ -160,11 +181,72 @@ def create_db(engine_string: str) -> None:
 
     engine = sqlalchemy.create_engine(engine_string)
 
-    delete_ifexists(engine_string, 'wiki')
-    delete_ifexists(engine_string, 'news')
+    delete_if_exists(engine_string, 'wiki')
+    delete_if_exists(engine_string, 'news')
 
     Base.metadata.create_all(engine)
     logger.info("Database created.")
+
+
+def ingest_wiki(wiki_df, engine_string) -> None:
+    """Ingest wiki dataframe to database
+
+    Args:
+        wiki_df (obj `pandas.DataFrame`): with the following columns
+            date, news_id, title, wiki, url, image
+        engine_string (str): engine string for database
+    """
+
+    db_manager = WikiNewsManager(app=None, engine_string=engine_string)
+    for _, row in wiki_df.iterrows():
+        date, news_id, title, wiki, url, image = row
+        db_manager.add_wiki(date, news_id, title, wiki, url, image)
+    logger.info("%i rows added to 'wiki' table", len(wiki_df))
+    db_manager.close()
+
+
+def ingest_news(news_df, engine_string) -> None:
+    """Ingest news dataframe to database
+
+    Args:
+        news_df (obj `pandas.DataFrame`): with the following columns
+            date, news_id, headline, news, image, url, news_dis
+        engine_string (str): engine string for database
+    """
+
+    db_manager = WikiNewsManager(app=None, engine_string=engine_string)
+    for _, row in news_df.iterrows():
+        date, news_id, headline, news, image, url, news_dis = row
+        db_manager.add_news(date, news_id, headline, news, news_dis, image, url)
+    logger.info("%i rows  added to 'news' table", len(news_df))
+    db_manager.close()
+
+
+def ingest(joined_df, conf, engine_string) -> None:
+    """Orchestration function; after data is joined and filtered, ingest to db
+
+    Args:
+        file_path (str): file_path referencing output from filter_data()
+        engine_string (str): engine string for database
+        args.config (dict): filepath to yaml-style config with:
+            args['normalize']['primary_key']
+            args['normalize']['primary_keys']
+            args['news']['raw_columns']
+            args['wiki']['raw_columns']
+            args['render']
+    """
+
+    joined_df = joined_df.fillna('')
+
+    wiki_df = joined_df[conf['wiki']['raw_columns']]
+    wiki_df = wiki_df.drop_duplicates(['date', 'news_id', 'title'])
+    logger.debug('wiki dataframe to ingest has %i rows', len(wiki_df))
+    ingest_wiki(wiki_df, engine_string)
+
+    news_df = joined_df[conf['news']['raw_columns']].drop_duplicates()
+    news_df = render_news_col(news_df, joined_df, conf['render'])
+    logger.debug('news dataframe to ingest has %i rows', len(news_df))
+    ingest_news(news_df, engine_string)
 
 
 def render_text(text, entities):
@@ -206,88 +288,3 @@ def render_news_col(news_df, df, args):
             drop_duplicates().values
         news_df.loc[i, args['new_column']] = render_text(row['news'], entities)
     return news_df
-
-
-def ingest_wiki(wiki_df, engine_string) -> None:
-    """Ingest wiki dataframe to database
-
-    Args:
-        wiki_df (obj `pandas.DataFrame`): with the following columns
-            date, news_id, title, wiki, url, image
-        engine_string (str): engine string for database
-    """
-
-    db_manager = WikiNewsManager(app=None, engine_string=engine_string)
-    for _, row in wiki_df.iterrows():
-        date, news_id, title, wiki, url, image = row
-        db_manager.add_wiki(date, news_id, title, wiki, url, image)
-    logger.info("%i rows added to 'wiki' table", len(wiki_df))
-    db_manager.close()
-
-
-def ingest_news(news_df, engine_string) -> None:
-    """Ingest news dataframe to database
-
-    Args:
-        news_df (obj `pandas.DataFrame`): with the following columns
-            date, news_id, headline, news, image, url, news_dis
-        engine_string (str): engine string for database
-    """
-
-    db_manager = WikiNewsManager(app=None, engine_string=engine_string)
-    for _, row in news_df.iterrows():
-        date, news_id, headline, news, image, url, news_dis = row
-        db_manager.add_news(date, news_id, headline, news, news_dis, image, url)
-    logger.info("%i rows  added to 'news' table", len(news_df))
-    db_manager.close()
-
-
-def remove_accents(s):
-    """ remove accents which database may not be able to handle """
-    return unidecode(s)
-
-
-def normalize(df, args):
-    """normalizes non-utf chars in a primary key to avoid nonunique errors
-
-    Args:
-        df (obj `pandas.DataFrame`)
-        args (dict): yaml-style config with keys:
-            'primary_key', 'primary_keys'
-    """
-
-    df[args['primary_key']] = df[args['primary_key']].apply(remove_accents)
-    # when accents are removed, the primary keys may no longer be unique
-    df = df.drop_duplicates(args['primary_keys'])
-    return df
-
-
-def ingest(args) -> None:
-    """Orchestration function; after data is joined and filtered, ingest to db
-
-    Args:
-        file_path (str): file_path referencing output from filter_data()
-        engine_string (str): engine string for database
-        args.config (dict): filepath to yaml-style config with:
-            args['normalize']['primary_key']
-            args['normalize']['primary_keys']
-            args['news']['raw_columns']
-            args['wiki']['raw_columns']
-            args['render']
-    """
-    with open(args.config, 'r') as conf_file:
-        conf = yaml.load(conf_file, Loader=yaml.FullLoader)
-
-    df = pd.read_csv(args.input)
-    df = df.fillna('')
-
-    if 'normalize' in conf:
-        df = normalize(df, conf['normalize'])
-
-    wiki_df = df[conf['wiki']['raw_columns']]
-    wiki_df = wiki_df.drop_duplicates(['date', 'news_id', 'title'])
-    ingest_wiki(wiki_df, args.engine_string)
-
-    news_df = df[conf['news']['raw_columns']].drop_duplicates()
-    news_df = render_news_col(news_df, df, conf['render'])
-    ingest_news(news_df, args.engine_string)
