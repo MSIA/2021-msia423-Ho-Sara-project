@@ -11,6 +11,7 @@ filelock==3.0.12
 Flask==1.1.1
 Flask-SQLAlchemy==2.4.1
 glovebox==0.0.5
+itsdangerous==1.1.0
 Jinja2==2.11.3
 joblib==1.0.1
 nltk
