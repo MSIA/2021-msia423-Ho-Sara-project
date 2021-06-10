@@ -1,7 +1,8 @@
 """ Module containing functions to format the data for the algorithm and run it
 
 join_data(news_path, wiki_path)
-filter_data(data, conf)
+predict_data(data, conf)
+filter_data(data)
 
 helper functions:
     text_to_vector(text)
@@ -56,12 +57,12 @@ def predict_data(data, conf):
     """
 
     data = remove_stopwords(data, conf)
-    logger.info('removed stop words')
-
     data['sim'] = data[conf['processed_features']].apply(get_cosine, axis=1)
     logger.info("mean similarity score: %f", data['sim'].mean())
 
     data['predict'] = data['sim'] > conf['threshhold']
+    logger.info("there are %i total matches", len(data))
+    logger.info("predicted %i relevant matches", data['predict'].sum())
 
     return data
 
